@@ -1,0 +1,10 @@
+streamlit
+IPython.display
+numpy
+pandas
+altair
+datetime
+os
+requests
+dotenv
+openai
