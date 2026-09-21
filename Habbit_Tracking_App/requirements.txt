@@ -1,10 +1,7 @@
 streamlit
-IPython.display
 numpy
 pandas
 altair
-datetime
-os
 requests
-dotenv
+python-dotenv
 openai
