@@ -1,6 +1,6 @@
 # 📅 Habit Tracker App 
 
-[Streamlit_App](https://habbit-tracking-app.streamlit.app/)
+[Streamlit_Habbit_Tracking_App](https://habbit-tracking-app.streamlit.app/)
 
 A Streamlit web app for building and tracking daily, weekly, and monthly habits. Log completions, watch your streaks grow, view a calendar heatmap of your activity, and get short personalized coaching tips from an LLM.
 
@@ -68,7 +68,7 @@ altair
 requests
 python-dotenv
 openai
-ipython
+
 ```
 
 
