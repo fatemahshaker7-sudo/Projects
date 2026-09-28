@@ -32,7 +32,7 @@ Just over half of the company's employees left between 2018 and 2023, and in 202
 ├── code/
 │   ├── HR_Employee_Analysis.ipynb
 ├── presentation/
-│   ├── Employee_Attrition_Presentation.pdf
+│   ├── HR_Employee_ppt.pdf
 ```
 
 ---
