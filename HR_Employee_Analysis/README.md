@@ -131,10 +131,10 @@ Just over half of the company's employees left between 2018 and 2023, and in 202
 
 | Chart | Insight |
 |---|---|
-| ![Hires vs Exits](presentation/images/hires_vs_exits.png) | Exits rose every year and passed hires in 2023 |
-| ![Exit rate bubble chart](presentation/images/exit_rate_bubble.png) | Exit rate by department and year: highest in Executive and Admin Offices early, then company-wide by 2023 |
-| ![Tenure at exit](presentation/images/tenure_at_exit.png) | About half of leavers left within their first year |
-| ![Termination types](presentation/images/termination_types.png) | The four termination types are split almost evenly |
+| ![Hires vs Exits](Presentation/images/hires_vs_exits.png) | Exits rose every year and passed hires in 2023 |
+| ![Exit rate bubble chart](Presentation/images/Department Exit Rate per Year.png) | Exit rate by department and year: highest in Executive and Admin Offices early, then company-wide by 2023 |
+| ![Tenure at exit](Presentation/images/Employees% per Tenure.png) | About half of leavers left within their first year |
+| ![Termination types](Presentation/images/Termination Types Proportions.png) | The four termination types are split almost evenly |
 
 ---
 
