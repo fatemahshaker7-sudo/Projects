@@ -140,7 +140,6 @@ Just over half of the company's employees left between 2018 and 2023, and in 202
 
 ## Sources
 
-- *[Dataset source and link]*
 - pandas documentation: https://pandas.pydata.org/docs/
 - matplotlib documentation: https://matplotlib.org/stable/
 - seaborn documentation: https://seaborn.pydata.org/
