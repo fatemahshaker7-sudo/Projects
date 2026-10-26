@@ -24,7 +24,7 @@ def load_model():
 
 model = load_model()
 
-st.markdown("<h1 style='text-align:center'>🪞 Mood Mirror</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center'>Emotions Classifier</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;color:gray'>Show me your face, I'll read your mood.</p>",
             unsafe_allow_html=True)
 
