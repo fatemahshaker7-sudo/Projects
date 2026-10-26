@@ -56,7 +56,7 @@ Emotions_Classifier/
 
 ## Conclusions and Recommendations
 
-- **CNN** model was chosen for the app because it had the best test accuracy (30%).
+- **CNN** model was chosen for the app because it had the best test accuracy (33%).
 - Small classes such as disgust and fear are the hardest to predict.
 - Use better network, or add more layers
 ---
