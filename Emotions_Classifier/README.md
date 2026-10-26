@@ -47,8 +47,8 @@ Emotions_Classifier/
 
 | Model | Train accuracy | Test accuracy |
 |---|---|---|
-| [Baseline] | 20% | 20% |
-| **[Final model]** | 30% | **33%** |
+| CNN 1 LAYER | 20% | 20% |
+| **CNN 2LAYERS** | 30% | **33%** |
 
 ![Confusion matrix](images/confusion_matrix.png)
 
