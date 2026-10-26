@@ -14,7 +14,7 @@ Reading emotions from faces automatically is hard because faces vary and some em
 
 I used the FER-2013 dataset of 48×48 grayscale face images. The images were scaled to 0–1 and fed to a CNN model. The data is imbalanced (happy is the largest class, disgust the smallest), so I looked at per-class results and not only overall accuracy.
 
-The final model reached **30% accuracy** on unseen test images. It works best on **surprise** and struggles most with **disgust**. I deployed it in a Streamlit app where the user uploads a face image and sees the predicted emotion with its confidence.
+The final model reached **33% accuracy** on unseen test images. It works best on **surprise** and struggles most with **disgust**. I deployed it in a Streamlit app where the user uploads a face image and sees the predicted emotion with its confidence.
 
 ---
 
@@ -48,7 +48,7 @@ Emotions_Classifier/
 | Model | Train accuracy | Test accuracy |
 |---|---|---|
 | [Baseline] | 20% | 20% |
-| **[Final model]** | 30% | **30%** |
+| **[Final model]** | 30% | **33%** |
 
 ![Confusion matrix](images/confusion_matrix.png)
 
@@ -58,8 +58,7 @@ Emotions_Classifier/
 
 - **CNN** model was chosen for the app because it had the best test accuracy (30%).
 - Small classes such as disgust and fear are the hardest to predict.
-- Show the confidence with every prediction, and use the result as a guide, not as a certain answer.
-
+- Use better network, or add more layers
 ---
 
 ## Further Research
