@@ -50,7 +50,7 @@ Emotions_Classifier/
 | [Baseline] | 20% | 20% |
 | **[Final model]** | 30% | **30%** |
 
-![Confusion matrix](images/[confusion_matrix].png)
+![Confusion matrix](images/confusion_matrix.png)
 
 ---
 
