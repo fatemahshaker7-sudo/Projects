@@ -4,7 +4,7 @@ import streamlit as st
 import tensorflow as tf
 from PIL import Image
 
-st.set_page_config(page_title="Mood Mirror", page_icon="🪞", layout="centered")
+st.set_page_config(page_title="Emotions Classifier", page_icon="🪞", layout="centered")
 
 LABELS = ["Angry", "Disgust", "Fear", "Happy", "Neutral", "Sad", "Surprise"]
 STYLE = {
