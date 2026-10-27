@@ -37,7 +37,7 @@ Age_Gender_Prediction/
 |---|---|---|
 | CNN (2 conv blocks, one dense layer ,2 outputs), test set | 8.9 years | 88.5% |
 
-Training curves of age error and gender accuracy are in the Code folder.
+Training curves of age error and gender accuracy are in the Code folder and as shown below.
 ![model_performance](images/model_performance.png)
 ## Conclusions and Recommendations
 - One shared CNN predicts both age and gender, which keeps the model small and fast.
