@@ -17,9 +17,12 @@ Age_Gender_Prediction/
 ├── Code/            # python file with data prep, training and evaluation
 │    └── age_gender_model.py
 └── app/             # Streamlit app, trained model, requirements.txt
-     ├── requirements.txt
-     ├── age_gender_app.py
-     └── age_gender_model.keras
+│    ├── requirements.txt
+│    ├── age_gender_app.py
+│    └── age_gender_model.keras
+│
+└── images/
+     └── model_performance.png
 ```
 
 ## Data
