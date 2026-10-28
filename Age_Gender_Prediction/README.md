@@ -8,7 +8,7 @@ Estimating a person's age and gender from a face photo is hard because people of
 ## Executive Summary
 I used the UTKFace dataset of cropped face images. The images were resized to 64×64, scaled to 0–1 and fed to a CNN with two outputs: one for age (regression) and one for gender (binary classification). The labels are read directly from the file names. The data was split into train, validation and test sets, stratified by gender and age so each set has the same male/female mix.
 
-The final model reached an average age error of about **8.9 years** and **88.5% gender accuracy** on unseen test images. I deployed it in a Streamlit app where the user takes or uploads a face photo and sees the estimated age and predicted gender with its confidence.
+The final model reached an average age error of about **6.8 years** and **89.2% gender accuracy** on unseen test images. I deployed it in a Streamlit app where the user takes or uploads a face photo and sees the estimated age and predicted gender with its confidence.
 
 ## Table of Contents
 ```
@@ -35,7 +35,7 @@ Age_Gender_Prediction/
 ## Results
 | Model | Age error (MAE) | Gender accuracy |
 |---|---|---|
-| CNN (2 conv blocks, one dense layer ,2 outputs), test set | 8.9 years | 88.5% |
+| CNN (2 conv blocks, one dense layer ,2 outputs), test set | 6.8 years | 89.2% |
 
 Training curves of age error and gender accuracy are in the Code folder and as shown below.
 ![model_performance](images/model_performance.png)
