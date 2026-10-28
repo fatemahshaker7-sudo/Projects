@@ -41,7 +41,7 @@ Training curves of age error and gender accuracy are in the Code folder and as s
 ![model_performance](images/model_performance.png)
 ## Conclusions and Recommendations
 - One shared CNN predicts both age and gender, which keeps the model small and fast.
-- Gender is predicted well (88.5%), while age is harder: predictions are off by about 9 years on average.
+- Gender is predicted well (89.2%), while age is harder: predictions are off by about 6.8 years on average.
 - The model works best on clear, colored, front-facing, tightly cropped faces similar to the training images.
 - The model was not checked for race, so results may be less accurate for groups that are less represented in UTKFace.
 - To improve it: train on race to classify the images better.
