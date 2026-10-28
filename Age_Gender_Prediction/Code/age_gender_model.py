@@ -59,7 +59,7 @@ model.compile(optimizer="adam", loss={"age": "mae", "gender": "binary_crossentro
 # %% fitting and saving to history for plotting later
 history = model.fit(X_train, {"age": age_train, "gender": gender_train},
           validation_data=(X_val, {"age": age_val, "gender": gender_val}),
-          epochs=10, batch_size=64)
+          epochs=20, batch_size=64)
 
 # %% evaluating on test
 model.evaluate(X_test, {"age": age_test, "gender": gender_test})
