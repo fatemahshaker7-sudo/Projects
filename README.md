@@ -2,7 +2,7 @@
 
    | Project | Description | Results |
    |---|---|---|
-   | [Bahraini Currency Detector](Bahraini_Currency_Detector) | Detects and classifies bahraini currency using yolo and roboflow tools | [Live app](https://bhcurrencydetector.streamlit.app/) |
+   | [Bahraini Currency Detector](Bahraini_Currency_Detector) | Detects and classifies bahraini currency using yolo and roboflow tools | [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bhcurrencydetector.streamlit.app/) |
    | [Age Gender Prediction](Age_Gender_Prediction) | Predicts age and gender using the UTKFace dataset | [Live app](https://agegenderestimator.streamlit.app/) |
    | [Emotions Classifier](Emotions_Classifier) | Classifies facial expressions into 7 emotions using FER-2013 | [Live app](https://emotionsclassifier2.streamlit.app/) |
    | [HR Employee Analysis](HR_Employee_Analysis) | Analysis for Employee Data sets to figure leaving reasons | [PPT](HR_Employee_Analysis/Presentation/HR_Employee_ppt.pdf) |
