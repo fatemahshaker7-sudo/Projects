@@ -1,7 +1,6 @@
 # 📅 Habit Tracker App 
 
-[Streamlit_Habbit_Tracking_App](https://habbit-tracking-app.streamlit.app/)
-
+[![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://habbit-tracking-app.streamlit.app/)
 ![Demo](assets/Habbit_Tracker_Demo.gif)
 
 
