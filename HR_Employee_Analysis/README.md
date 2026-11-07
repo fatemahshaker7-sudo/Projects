@@ -32,9 +32,9 @@ Just over half of the company's employees left between 2018 and 2023, and in 202
 │   └── cleaned/
 │       └── cleaned_merged_employee_data.csv
 ├── code/
-│   ├── HR_Employee_Analysis.ipynb
+│   └── HR_Employee_Analysis.ipynb
 ├── presentation/
-│   ├── HR_Employee_ppt.pdf
+│   └── HR_Employee_ppt.pdf
 ```
 
 ---
