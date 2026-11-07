@@ -1,6 +1,6 @@
 # 🧑 Age & Gender Estimator
 
-**Live demo:** [agegenderestimator.streamlit.app](https://agegenderestimator.streamlit.app/)
+[![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://agegenderestimator.streamlit.app/)
 
 ## Problem Statement
 Estimating a person's age and gender from a face photo is hard because people of the same age can look very different, and the same face can look older or younger depending on lighting and photo quality. I built one model that looks at a face photo and predicts both the age (in years) and the gender (male or female).
