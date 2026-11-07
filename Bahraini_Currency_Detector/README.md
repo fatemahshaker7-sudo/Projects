@@ -1,7 +1,6 @@
 # 💵 Bahraini Currency Detector
 
-**Live demo:** [Bahraini Currency Detector App](https://bhcurrencydetector.streamlit.app/)
-
+[![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://bhcurrencydetector.streamlit.app/)
 * * *
 
 ## Problem Statement
