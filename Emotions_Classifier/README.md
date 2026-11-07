@@ -1,7 +1,6 @@
 # 😊 Facial Emotions Classifier
 
-**Live demo:** [emotionsclassifier2.streamlit.app](https://emotionsclassifier2.streamlit.app/)
-
+[![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://emotionsclassifier2.streamlit.app/)
 ---
 
 ## Problem Statement
