@@ -1,5 +1,7 @@
 # Understanding Employee Turnover Through HR Data Analytics
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/fatemahshaker7-sudo/Projects/blob/main/HR_Employee_Analysis/Code/HR_Employee_Analysis.ipynb)
+
 ## Problem Statement
 
 Just over half of the company's employees left between 2018 and 2023, and in 2023 exits outnumbered new hires for the first time. This project analyzes employee, engagement survey data to identify who is leaving, when, and from where, and to recommend actions that improve HR decisions on retention, and hiring.
