@@ -1,6 +1,7 @@
 # 💵 Bahraini Currency Detector
 
 [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://bhcurrencydetector.streamlit.app/)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/fatemahshaker7-sudo/Projects/blob/main/Bahraini_Currency_Detector/Code/Bahraini_currency_classification_datection.ipynb)
 * * *
 
 ## Problem Statement
