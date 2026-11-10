@@ -3,6 +3,9 @@
 Detecting industrial machine faults from sound using machine learning.
 *Data Science Capstone | Prototype stage*
 
+[![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?logo=streamlit&logoColor=white)](https://sound-anomaly-detection.streamlit.app/)
+
+
 ## Problem Statement 🎯
 
 Industrial machines like pumps often fail with little warning, and faults are usually caught by periodic inspections or a technician noticing an odd sound. Manual listening doesn't scale and misses problems between checks.
