@@ -1,7 +1,13 @@
 import io
-import joblib, librosa, numpy as np, sounddevice as sd, soundfile as sf, streamlit as st
+from pathlib import Path
+import joblib, librosa, numpy as np, soundfile as sf, streamlit as st
 
-model = joblib.load("pump00_0dB_model.joblib")
+try:                                   # CHANGE 1: sounddevice needs PortAudio + a local mic,
+    import sounddevice as sd           # which hosted servers (Streamlit Cloud) don't have
+except (OSError, ImportError):
+    sd = None
+
+model = joblib.load(Path(__file__).parent / "pump00_0dB_model.joblib")   # CHANGE 2: path relative to this file
 SR, SEC = 16000, 10    # the model was trained on 10-second clips at 16 kHz
 
 def predict(y):
@@ -17,7 +23,8 @@ def to_wav(y):
     return buf.getvalue()
 
 st.title("Pump Fault Detector 🕳")
-mode = st.radio("Choose input", ["Live microphone", "Upload clip"], horizontal=True)
+modes = (["Live microphone"] if sd else []) + ["Record in browser", "Upload clip"]   # CHANGE 3: browser mic for hosted use
+mode = st.radio("Choose input", modes, horizontal=True)
 
 if mode == "Live microphone":
     live = st.toggle("Start live monitoring")
@@ -44,9 +51,10 @@ if mode == "Live microphone":
     status.markdown("⚪ **Not recording**")
 
 else:
-    file = st.file_uploader("Upload a .wav clip", type="wav")
+    file = st.audio_input("Record a clip") if mode == "Record in browser" else st.file_uploader("Upload a .wav clip", type="wav")
     if file:
-        st.audio(file)
+        if mode == "Upload clip":
+            st.audio(file)
         file.seek(0)
         y, _ = librosa.load(file, sr=SR, mono=False)
         show(predict(y[0] if y.ndim > 1 else y), st.empty())
