@@ -2,6 +2,7 @@
 
    | Project | Description | Results |
    |---|---|---|
+   | [Bahraini Currency Detector](Bahraini_Currency_Detector) | Detects and classifies Machines Sounds | [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?logo=streamlit&logoColor=white)](https://sound-anomaly-detection.streamlit.app/) |
    | [Bahraini Currency Detector](Bahraini_Currency_Detector) | Detects and classifies bahraini currency using yolo and roboflow tools | [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://bhcurrencydetector.streamlit.app/) |
    | [Age Gender Prediction](Age_Gender_Prediction) | Predicts age and gender using the UTKFace dataset | [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://agegenderestimator.streamlit.app/) |
    | [Emotions Classifier](Emotions_Classifier) | Classifies facial expressions into 7 emotions using FER-2013 | [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20App-FF4B4B?logo=streamlit&logoColor=white)](https://emotionsclassifier2.streamlit.app/) |
