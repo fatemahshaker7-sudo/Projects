@@ -3,5 +3,3 @@ librosa
 numpy
 scikit-learn
 joblib
-sounddevice
-soundfile
