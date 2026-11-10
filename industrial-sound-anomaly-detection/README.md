@@ -4,6 +4,7 @@ Detecting industrial machine faults from sound using machine learning.
 *Data Science Capstone | Prototype stage*
 
 [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?logo=streamlit&logoColor=white)](https://sound-anomaly-detection.streamlit.app/)
+[![Notebook](https://img.shields.io/badge/Jupyter-View%20Notebook-F37626?logo=jupyter&logoColor=white)](https://github.com/fatemahshaker7-sudo/Projects/blob/main/industrial-sound-anomaly-detection/Prototype/notebooks/capstone_audio_check.ipynb)
 
 
 ## Problem Statement 🎯
