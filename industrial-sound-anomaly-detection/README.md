@@ -36,6 +36,3 @@ Industrial machines like pumps often fail with little warning, and faults are us
 pip install -r requirements.txt
 streamlit run pump_st.py
 ```
-
-Live microphone mode works locally only. Download the dataset from Zenodo (not included, due to size) and set `ROOT` in the notebook.
-
