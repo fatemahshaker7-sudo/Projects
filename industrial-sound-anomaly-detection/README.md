@@ -23,7 +23,7 @@ Industrial machines like pumps often fail with little warning, and faults are us
 
 ## Scope 🔍
 
-- **Data:** [MIMII Dataset](https://zenodo.org/records/3384388), pump ID 00, 0 dB noise (10 s clips, 16 kHz).
+- **Data:** [![Dataset: MIMII](https://img.shields.io/badge/Dataset-MIMII-blue?logo=zenodo&logoColor=white)](https://zenodo.org/records/3384388), pump ID 00, 0 dB noise (10 s clips, 16 kHz).
 - **Approach:** MFCC features (mean and standard deviation, 40 per clip) with a class-balanced Random Forest for binary classification.
 - **Audience:** maintenance and reliability engineers, plant operators, and capstone reviewers.
 - **Deliverables:** analysis notebook (`capstone_audio_check.ipynb`), trained model, Streamlit demo app (`pump_st.py`), evaluation results, final presentation.
