@@ -171,6 +171,10 @@ AI-Classroom-Monitoring/
 https://github.com/fatemahshaker7-sudo/Projects/blob/main/AI-Classroom-Monitoring/assets/Demo3.mp4
 
 
+https://github.com/user-attachments/assets/2fe90e9e-63df-424c-8ae6-8d2def24b58c
+
+
+
 
 
 https://github.com/user-attachments/assets/639cbdcf-92f6-40b7-bf34-2f27d73132d4
