@@ -135,6 +135,9 @@ python -m streamlit run stu_app.py
 
 ```
 AI-Classroom-Monitoring/
+├── assets
+|    ├── Demo3.mp4                       # demo video of the app
+|    └── ClassMind.pptx                  # presentation slides for the capstone
 ├── stu_app.py                           # the web app pages
 ├── face_helper_fun.py                   # models, video processing, attendance logic
 ├── face_detection_yunet_2023mar.onnx    # YuNet
