@@ -14,8 +14,7 @@ st.set_page_config(page_title="Class Mind", layout="wide")
 # Email settings
 EMAIL_EVENTS = ["Arrived", "Left class"]   # add "Returned" to email those too
 EMAILS_PER_REFRESH = 3                     # keeps the page responsive if many students arrive at once
-SERVERS = {"gmail.com": ("smtp.gmail.com", 465), "outlook.com": ("smtp-mail.outlook.com", 587),
-           "hotmail.com": ("smtp-mail.outlook.com", 587)}
+SERVERS = {"gmail.com": ("smtp.gmail.com", 465), "outlook.com": ("smtp-mail.outlook.com", 587), "hotmail.com": ("smtp-mail.outlook.com", 587)}
 EMB_COLS = [f"e{i}" for i in range(128)]
 BACKUP_COLS = ["Student", "Parent_email"] + EMB_COLS
 
@@ -114,7 +113,6 @@ if page == "Enroll":
             save_students()
             st.rerun()
 
-    
 else:   # monitoring and report share one page so the camera keeps running while you read the report
     tab_live, tab_report = st.tabs(["Live monitoring", "Report"])
 
