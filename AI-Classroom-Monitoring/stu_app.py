@@ -114,26 +114,7 @@ if page == "Enroll":
             save_students()
             st.rerun()
 
-    with st.expander("Backup / restore enrolled students"):
-        st.caption("Cloud servers can forget saved files when the app restarts. " "Download a backup after enrolling and restore it if the list is ever empty.")
-        backup = pd.DataFrame([[n, S["parents"].get(n, "")] + np.asarray(e).flatten().tolist() for n, embs in list(S["db"].items()) for e in embs], columns=BACKUP_COLS)
-        st.download_button("Download students backup (CSV)", backup.to_csv(index=False), "students_backup.csv", disabled=backup.empty)
-        upload = st.file_uploader("Restore from a backup CSV", type=["csv"], key="restore_csv")
-        if upload is not None and st.button("Restore students"):
-            df = pd.read_csv(upload)
-            if not set(BACKUP_COLS) <= set(df.columns):
-                st.error("This file is not a students backup made by this app.")
-            else:
-                S["db"].update({n: [] for n in df["Student"].astype(str).unique()})
-                for _, r in df.iterrows():
-                    person = str(r["Student"])
-                    S["db"][person].append(r[EMB_COLS].to_numpy(dtype=np.float32).reshape(1, -1))
-                    if isinstance(r["Parent_email"], str) and r["Parent_email"]:
-                        S["parents"][person] = r["Parent_email"]
-                save_students()
-                st.success(f"Restored {df['Student'].nunique()} student(s).")
-                st.rerun()
-
+    
 else:   # monitoring and report share one page so the camera keeps running while you read the report
     tab_live, tab_report = st.tabs(["Live monitoring", "Report"])
 
