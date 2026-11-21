@@ -1,4 +1,4 @@
-# Class Mind: AI Classroom Monitoring 🧠 [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?logo=streamlit&logoColor=white)](https://class-mind2.streamlit.app/)
+# 🧠 Class Mind: AI Classroom Monitoring  [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?logo=streamlit&logoColor=white)](https://class-mind2.streamlit.app/)
 
 
 A Streamlit app that recognizes students through a camera to take attendance automatically, estimates their attention and emotion, emails parents when a child arrives or leaves, and saves a log the teacher can analyze in Excel.
