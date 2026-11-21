@@ -14,7 +14,8 @@ st.set_page_config(page_title="Class Mind", layout="wide")
 # Email settings
 EMAIL_EVENTS = ["Arrived", "Left class"]   # add "Returned" to email those too
 EMAILS_PER_REFRESH = 3                     # keeps the page responsive if many students arrive at once
-SERVERS = {"gmail.com": ("smtp.gmail.com", 465), "outlook.com": ("smtp-mail.outlook.com", 587), "hotmail.com": ("smtp-mail.outlook.com", 587)}
+SERVERS = {"gmail.com": ("smtp.gmail.com", 465), "outlook.com": ("smtp-mail.outlook.com", 587),
+           "hotmail.com": ("smtp-mail.outlook.com", 587)}
 EMB_COLS = [f"e{i}" for i in range(128)]
 BACKUP_COLS = ["Student", "Parent_email"] + EMB_COLS
 
@@ -113,6 +114,26 @@ if page == "Enroll":
             save_students()
             st.rerun()
 
+    with st.expander("Backup / restore enrolled students"):
+        st.caption("Cloud servers can forget saved files when the app restarts. " "Download a backup after enrolling and restore it if the list is ever empty.")
+        backup = pd.DataFrame([[n, S["parents"].get(n, "")] + np.asarray(e).flatten().tolist() for n, embs in list(S["db"].items()) for e in embs], columns=BACKUP_COLS)
+        st.download_button("Download students backup (CSV)", backup.to_csv(index=False), "students_backup.csv", disabled=backup.empty)
+        upload = st.file_uploader("Restore from a backup CSV", type=["csv"], key="restore_csv")
+        if upload is not None and st.button("Restore students"):
+            df = pd.read_csv(upload)
+            if not set(BACKUP_COLS) <= set(df.columns):
+                st.error("This file is not a students backup made by this app.")
+            else:
+                S["db"].update({n: [] for n in df["Student"].astype(str).unique()})
+                for _, r in df.iterrows():
+                    person = str(r["Student"])
+                    S["db"][person].append(r[EMB_COLS].to_numpy(dtype=np.float32).reshape(1, -1))
+                    if isinstance(r["Parent_email"], str) and r["Parent_email"]:
+                        S["parents"][person] = r["Parent_email"]
+                save_students()
+                st.success(f"Restored {df['Student'].nunique()} student(s).")
+                st.rerun()
+
 else:   # monitoring and report share one page so the camera keeps running while you read the report
     tab_live, tab_report = st.tabs(["Live monitoring", "Report"])
 
@@ -156,13 +177,12 @@ else:   # monitoring and report share one page so the camera keeps running while
             if totals:
                 with st.expander("Total hours across all days"):
                     st.dataframe(pd.DataFrame([{"Student": n, "Days attended": d, "Total hours": round(secs / 3600, 2)}  for n, (d, secs) in totals.items()]), hide_index=True)
-
         with tab2:
             rows = []
             for n, g in day_log.groupby("Student"):
                 counts, visible = g["Attention"].value_counts(), int((g["Visible"] == 1).sum())
                 row = {"Student": n, "Attention %": round(100 * counts.get("Attentive", 0) / visible, 1) if visible else 0.0}
-                row.update({f"{k} (s)": int(counts.get(k, 0)) for k in ["Attentive", "Looking away", "Side-talking",  "Head down", "Sleepy", "Not visible"]})
+                row.update({f"{k} (s)": int(counts.get(k, 0)) for k in ["Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible"]})
                 rows.append(row)
             if not rows:
                 st.info("No attention data recorded for this date.")
@@ -170,6 +190,11 @@ else:   # monitoring and report share one page so the camera keeps running while
                 st.subheader(f"Attention on {day}")
                 st.dataframe(pd.DataFrame(rows), hide_index=True)
 
+                if "Emotion" in day_log.columns:    # missing if the log file is from before emotions were added
+                    emotions = day_log[day_log["Emotion"].notna() & (day_log["Emotion"] != "")]
+                    if not emotions.empty:
+                        st.subheader(f"Emotions on {day} (seconds)")
+                        st.dataframe(emotions.groupby(["Student", "Emotion"]).size().unstack(fill_value=0).reset_index(), hide_index=True)
         with tab3:
             if day_log.empty:
                 st.info("No log rows for this date.")
