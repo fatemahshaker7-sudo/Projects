@@ -41,8 +41,6 @@ BAHRAIN = timezone(timedelta(hours=3))   # Bahrain time (UTC+3, no daylight savi
 def bahrain_time(ts=None):
     """The current time (or the given timestamp) as Bahrain time."""
     return datetime.fromtimestamp(time.time() if ts is None else ts, BAHRAIN)
-    
-BAHRAIN = timezone(timedelta(hours=3))   # Bahrain time (UTC+3, no daylight saving)
 
 def bahrain_time(ts=None):
     """The current time (or the given timestamp) as Bahrain time."""
