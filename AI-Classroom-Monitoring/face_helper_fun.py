@@ -3,8 +3,7 @@ import os
 import pickle
 import tempfile
 import time
-from datetime import datetime
-import av
+from datetime import datetime, timedelta, timezoneimport av
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -36,7 +35,12 @@ VISIBLE_SECS = 2.0       # a student counts as "visible" if seen within this man
 
 COLORS = {"Attentive": (0, 200, 0), "Looking away": (0, 165, 255), "Side-talking": (0, 100, 255), "Head down": (255, 150, 0), "Sleepy": (0, 0, 255)}
 LOG_COLUMNS = ["Date", "Time", "Student", "Status", "Visible", "Attention", "Emotion", "Time_in_class_secs", "Time_away_secs", "Times_left"]
+BAHRAIN = timezone(timedelta(hours=3))   # Bahrain time (UTC+3, no daylight saving)
 
+def bahrain_time(ts=None):
+    """The current time (or the given timestamp) as Bahrain time."""
+    return datetime.fromtimestamp(time.time() if ts is None else ts, BAHRAIN)
+    
 for path in (DETECTOR_PATH, RECOGNIZER_PATH, EMOTION_PATH):
     if not os.path.exists(path):
         raise FileNotFoundError(f"Missing model file: {os.path.basename(path)}. Put it in the repository next to app.py.")
@@ -95,7 +99,7 @@ def save_students():
     save_pickle(PARENTS_PATH, S["parents"])
 
 def fmt_dt(ts):
-    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+    return bahrain_time(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 def fmt_duration(secs):
     secs = int(secs)
@@ -162,7 +166,7 @@ def video_callback(frame):
                 continue
 
             # attendance: first sighting of the day, last seen, time in class
-            day = S["att"].setdefault(datetime.fromtimestamp(now).strftime("%Y-%m-%d"), {})
+            day = S["att"].setdefault(bahrain_time(now).strftime("%Y-%m-%d"), {})
             if name not in day:
                 day[name] = {"first_seen": fmt_dt(now), "last_seen": fmt_dt(now), "last_ts": now,
                              "present_secs": 0, "away_secs": 0, "left_count": 0, "status": "In class",
@@ -219,14 +223,14 @@ def video_callback(frame):
     # once per second: mark students who left, write log rows, save attendance
     if now - S["last_log"] >= 1:
         S["last_log"] = now
-        today = datetime.fromtimestamp(now).strftime("%Y-%m-%d")
+        today = bahrain_time(now).strftime("%Y-%m-%d")
         check_left(S["att"], now, gone_secs)
 
         rows = []
         for name, s in list(S["att"].get(today, {}).items()):    # one log row for every student who arrived today
             info = S["latest"].get(name)
             visible = info is not None and now - info["ts"] <= VISIBLE_SECS
-            rows.append({"Date": today, "Time": datetime.fromtimestamp(now).strftime("%H:%M:%S"),
+            rows.append({"Date": today, "Time": bahrain_time(now).strftime("%H:%M:%S"),
                          "Student": name, "Status": s["status"], "Visible": int(visible),
                          "Attention": info["label"] if visible else "Not visible",
                          "Emotion": info["emotion"] if visible else "",
