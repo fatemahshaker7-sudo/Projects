@@ -14,6 +14,8 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = BASE if os.access(BASE, os.W_OK) else tempfile.gettempdir()
 DETECTOR_PATH = os.path.join(BASE, "face_detection_yunet_2023mar.onnx")
 RECOGNIZER_PATH = os.path.join(BASE, "face_recognition_sface_2021dec.onnx")
+EMOTION_PATH = os.path.join(BASE, "emotion-ferplus-8.onnx")
+EMOTIONS = ["Neutral", "Happy", "Surprised", "Sad", "Angry", "Disgusted", "Fearful", "Contempt"]
 DB_PATH = os.path.join(DATA_DIR, "students.pkl")
 PARENTS_PATH = os.path.join(DATA_DIR, "parents.pkl")
 ATTENDANCE_PATH = os.path.join(DATA_DIR, "attendance.pkl")
@@ -33,9 +35,9 @@ PROCESS_SIZE = 640       # frames are shrunk to this width before analysis
 VISIBLE_SECS = 2.0       # a student counts as "visible" if seen within this many seconds
 
 COLORS = {"Attentive": (0, 200, 0), "Looking away": (0, 165, 255), "Side-talking": (0, 100, 255), "Head down": (255, 150, 0), "Sleepy": (0, 0, 255)}
-LOG_COLUMNS = ["Date", "Time", "Student", "Status", "Visible", "Attention", "Time_in_class_secs", "Time_away_secs", "Times_left"]
+LOG_COLUMNS = ["Date", "Time", "Student", "Status", "Visible", "Attention", "Emotion", "Time_in_class_secs", "Time_away_secs", "Times_left"]
 
-for path in (DETECTOR_PATH, RECOGNIZER_PATH):
+for path in (DETECTOR_PATH, RECOGNIZER_PATH, EMOTION_PATH):
     if not os.path.exists(path):
         raise FileNotFoundError(f"Missing model file: {os.path.basename(path)}. Put it in the repository next to app.py.")
 
@@ -58,6 +60,7 @@ def snapshot(data):
 # Everything the video and the pages share. A module is loaded only once, so this is created once.
 S = {"detector": cv2.FaceDetectorYN.create(DETECTOR_PATH, "", (320, 320), score_threshold=0.8),
      "recognizer": cv2.FaceRecognizerSF.create(RECOGNIZER_PATH, ""),
+     "emotion_net": cv2.dnn.readNetFromONNX(EMOTION_PATH),
      "face_mesh": mp.solutions.face_mesh.FaceMesh(max_num_faces=20, refine_landmarks=True),
      "db": load_pickle(DB_PATH),              # { "Sara": [embedding, ...] }
      "parents": load_pickle(PARENTS_PATH),    # { "Sara": "parent@example.com" }
@@ -112,7 +115,9 @@ def attendance_table(att, day, names):
     rows = []
     for name in sorted(set(names) | set(att.get(day, {}))):
         s = att.get(day, {}).get(name, absent)
-        rows.append({"Student": name, "Status": s["status"], "First seen": s["first_seen"], "Last seen": s["last_seen"], "Time in class": fmt_duration(s["present_secs"]), "Time away": fmt_duration(s["away_secs"]), "Times left": s["left_count"], "Hours in class": round(s["present_secs"] / 3600, 2)})
+        rows.append({"Student": name, "Status": s["status"], "First seen": s["first_seen"], "Last seen": s["last_seen"],
+                     "Time in class": fmt_duration(s["present_secs"]), "Time away": fmt_duration(s["away_secs"]),
+                     "Times left": s["left_count"], "Hours in class": round(s["present_secs"] / 3600, 2)})
     return pd.DataFrame(rows)
 
 def load_log():
@@ -145,6 +150,7 @@ def video_callback(frame):
             name = "Unknown"
             for f in faces:
                 if f[0] <= cx <= f[0] + f[2] and f[1] <= cy <= f[1] + f[3]:
+                    face_box = f
                     emb = get_embedding(small, f)
                     scores = [(S["recognizer"].match(emb, e, cv2.FaceRecognizerSF_FR_COSINE), n)
                               for n, embs in list(S["db"].items()) for e in list(embs)]
@@ -177,8 +183,7 @@ def video_callback(frame):
 
             # attention: eyes, head turn, head tilt and mouth movement from the face mesh
             dist = lambda a, b: np.linalg.norm(pts[a] - pts[b])
-            ear = ((dist(385, 380) + dist(387, 373)) / (2 * dist(362, 263))
-                   + (dist(160, 144) + dist(158, 153)) / (2 * dist(33, 133))) / 2
+            ear = ((dist(385, 380) + dist(387, 373)) / (2 * dist(362, 263)) + (dist(160, 144) + dist(158, 153)) / (2 * dist(33, 133))) / 2
             yaw = (pts[1][0] - pts[234][0]) / (pts[454][0] - pts[234][0])
             pitch = (pts[1][1] - pts[10][1]) / (pts[152][1] - pts[10][1])
             state = S["states"].setdefault(name, {"closed": None, "away": None, "down": None, "mouth": []})
@@ -196,9 +201,19 @@ def video_callback(frame):
             else:
                 label = "Attentive"
 
-            S["latest"][name] = {"ts": now, "label": label}
+            # emotion: crop the face from the video and let the pretrained model classify it
+            fx, fy, fw, fh = [max(int(v), 0) for v in face_box[:4]]
+            crop = cv2.cvtColor(small[fy:fy + fh, fx:fx + fw], cv2.COLOR_BGR2GRAY)
+            votes = state.setdefault("emotions", [])
+            if crop.size:
+                S["emotion_net"].setInput(cv2.resize(crop, (64, 64)).reshape(1, 1, 64, 64).astype(np.float32))
+                votes.append(EMOTIONS[int(np.argmax(S["emotion_net"].forward()))])
+                del votes[:-10]                                  # keep the last 10 guesses
+            emotion = max(set(votes), key=votes.count) if votes else "Neutral"   # most common = steadier result
+
+            S["latest"][name] = {"ts": now, "label": label, "emotion": emotion}
             debug = f"ear {ear:.2f} yaw {yaw:.2f} pitch {pitch:.2f}" if S["settings"]["debug"] else ""
-            overlay.append(box + (f"{name}: {label}", COLORS[label], debug))
+            overlay.append(box + (f"{name}: {label} ({emotion})", COLORS[label], debug))
         S["overlay"] = overlay
 
     # once per second: mark students who left, write log rows, save attendance
@@ -214,6 +229,7 @@ def video_callback(frame):
             rows.append({"Date": today, "Time": datetime.fromtimestamp(now).strftime("%H:%M:%S"),
                          "Student": name, "Status": s["status"], "Visible": int(visible),
                          "Attention": info["label"] if visible else "Not visible",
+                         "Emotion": info["emotion"] if visible else "",
                          "Time_in_class_secs": round(s["present_secs"]),
                          "Time_away_secs": round(s["away_secs"]), "Times_left": s["left_count"]})
         if rows:
