@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from streamlit_webrtc import WebRtcMode, webrtc_streamer
-from face_helper_fun import (S, ATTENDANCE_PATH, LOG_PATH, LOG_COLUMNS, PROCESS_SIZE, snapshot, save_pickle, save_students, shrink, detect_faces, get_embedding, check_left, attendance_table, load_log, video_callback)
+from face_helper_fun import (S, ATTENDANCE_PATH, LOG_PATH, LOG_COLUMNS, PROCESS_SIZE, snapshot, save_pickle, save_students, shrink, detect_faces, get_embedding, check_left, attendance_table, load_log, video_callback, bahrain_time)
 
 st.set_page_config(page_title="Class Mind", layout="wide")
 
@@ -21,7 +21,7 @@ BACKUP_COLS = ["Student", "Parent_email"] + EMB_COLS
 @st.fragment(run_every=2)
 def live_view():
     """Refreshes by itself every 2 seconds without restarting the camera, and sends the parent emails."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = bahrain_time().strftime("%Y-%m-%d")
     mail, sent = S["settings"]["mail"], 0
 
     # email parents about new arrivals / departures (sent here, so the video never waits for mail)
@@ -38,7 +38,7 @@ def live_view():
             sent += 1
             to_addr, domain = S["parents"].get(name), mail["sender"].split("@")[-1].lower()
             if not to_addr or domain not in SERVERS:
-                S["email_log"].append(f"{datetime.now():%H:%M:%S}  skipped {name}: no parent email saved, " "or the sender is not a Gmail / Outlook / Hotmail address")
+                S["email_log"].append(f"{bahrain_time():%H:%M:%S}  skipped {name}: no parent email saved, " "or the sender is not a Gmail / Outlook / Hotmail address")
                 continue
             subject = f"{name} arrived at class" if event == "Arrived" else f"{name} left class"
             text = (f"{name} arrived in class on {when[:10]} at {when[11:]}." if event == "Arrived" else
@@ -52,7 +52,7 @@ def live_view():
                     server.starttls()
                 server.login(mail["sender"], mail["password"])
                 server.send_message(msg)
-            S["email_log"].append(f"{datetime.now():%H:%M:%S}  sent to {to_addr}: {subject}")
+            S["email_log"].append(f"{bahrain_time():%H:%M:%S}  sent to {to_addr}: {subject}")
 
     age = time.time() - S["last_process"] if S["last_process"] else None
     if age is None:
@@ -131,7 +131,7 @@ else:   # monitoring and report share one page so the camera keeps running while
     with tab_report:
         att, names, log = snapshot(S["att"]), list(S["db"]), load_log()
         check_left(att, time.time(), gone_secs)   # on a copy, only for display
-        day = st.date_input("Date", value=datetime.now().date()).strftime("%Y-%m-%d")
+        day = st.date_input("Date", value=bahrain_time().date()).strftime("%Y-%m-%d")
         day_log = log[log["Date"] == day]
         tab1, tab2, tab3 = st.tabs(["Attendance", "Attention", "Log file"])
 
