@@ -1,3 +1,8 @@
+import io
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import smtplib
 import time
 from datetime import datetime
@@ -71,7 +76,7 @@ def live_view():
         st.text("\n".join(S["email_log"][-5:]) or "No emails sent yet.")
 
 # sidebar
-page = st.sidebar.radio("Page", ["Class", "Enroll"])
+page = st.sidebar.radio("Page", ["Class", "Enroll", "Dashboard"])
 gone_secs = st.sidebar.number_input("Mark as 'left class' after (seconds not seen)", 10, 1800, 60)
 sender = st.sidebar.text_input("Sender email (for parent notifications)").strip()
 password = st.sidebar.text_input("Sender password", type="password")
@@ -114,7 +119,125 @@ if page == "Enroll":
             S["parents"].pop(student, None)
             save_students()
             st.rerun()
+elif page == "Dashboard":
+    st.header("Dashboard")
+    log = load_log().reindex(columns=LOG_COLUMNS)
+    if log.empty:
+        st.info("No data yet. Run a monitoring session first.")
+        st.stop()
 
+    # filters
+    dates, all_students = sorted(log["Date"].unique()), sorted(log["Student"].unique())
+    c1, c2 = st.columns(2)
+    start = c1.selectbox("From", dates, index=0)
+    end = c2.selectbox("To", dates, index=len(dates) - 1)
+    students = st.multiselect("Students", all_students, default=all_students)
+    data = log[(log["Date"] >= start) & (log["Date"] <= end) & log["Student"].isin(students)]
+    if data.empty:
+        st.warning("No data for this selection.")
+        st.stop()
+
+    # numbers behind the dashboard
+    seen = data[data["Visible"] == 1]                                            # seconds when the student was on camera
+    class_secs = data.groupby(["Date", "Student"])["Time_in_class_secs"].max()   # running total, so the last value is the day's total
+    emo = seen["Emotion"].dropna()
+    emo = emo[emo != ""]
+    attention = round(100 * (seen["Attention"] == "Attentive").mean(), 1) if len(seen) else 0
+    kpis = {"Students": data["Student"].nunique(), "Days": data["Date"].nunique(),
+            "Hours in class": round(class_secs.sum() / 3600, 1), "Average attention": f"{attention}%",
+            "Times left class": int(data.groupby(["Date", "Student"])["Times_left"].max().sum()),
+            "Most common emotion": emo.mode()[0] if len(emo) else "-"}
+
+    STATES = ["Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible"]
+    STATE_COLORS = ["#6B9080", "#E9B44C", "#D1603D", "#4A6FA5", "#7D5BA6", "#B8C0BC"]
+
+    # each chart is drawn on an axis, so the same drawing is used on the page and in the PDF
+    def chart_attention(ax):
+        pct = seen.groupby("Student")["Attention"].apply(lambda s: 100 * (s == "Attentive").mean())
+        ax.barh(pct.index, pct.values, color="#6B9080")
+        ax.set_xlim(0, 100)
+        ax.set_xlabel("% of on-camera time attentive")
+
+    def chart_breakdown(ax):
+        secs = data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0)
+        left = np.zeros(len(secs))
+        for state, color in zip(STATES, STATE_COLORS):
+            ax.barh(secs.index, secs[state], left=left, color=color, label=state)
+            left += secs[state].values
+        ax.set_xlim(0, secs.sum(axis=1).max() * 1.4)   # free space on the right for the legend
+        ax.set_xlabel("Seconds")
+        ax.legend(fontsize=7, loc="center right")
+
+    def chart_hours(ax):
+        hours = class_secs.groupby("Student").sum() / 3600
+        ax.bar(hours.index, hours.values, color="#10283F")
+        ax.set_ylabel("Hours in class")
+        ax.tick_params(axis="x", rotation=30)
+
+    def chart_emotions(ax):
+        counts = emo.value_counts()
+        ax.bar(counts.index, counts.values, color="#6B9080")
+        ax.set_ylabel("Seconds")
+        ax.tick_params(axis="x", rotation=30)
+
+    def chart_timeline(ax):
+        slot = pd.to_datetime(seen["Time"], format="%H:%M:%S").dt.floor("5min").dt.strftime("%H:%M")
+        line = (seen["Attention"] == "Attentive").groupby(slot).mean() * 100
+        ax.plot(range(len(line)), line.values, color="#6B9080", marker="o")
+        step = max(1, len(line) // 8)
+        ax.set_xticks(range(0, len(line), step))
+        ax.set_xticklabels(line.index[::step], rotation=45)
+        ax.set_ylim(0, 100)
+        ax.set_ylabel("% attentive (5-minute blocks)")
+
+    def chart_present(ax):
+        present = data.groupby("Date")["Student"].nunique()
+        ax.bar(present.index, present.values, color="#10283F")
+        ax.set_ylabel("Students")
+        ax.tick_params(axis="x", rotation=30)
+
+    def finish(ax, title):
+        ax.set_title(title, loc="left", fontsize=11, fontweight="bold", color="#10283F")
+        ax.spines[["top", "right"]].set_visible(False)
+
+    charts = [("Attention by student", chart_attention), ("Attention states (seconds)", chart_breakdown),
+              ("Hours in class by student", chart_hours), ("Emotions (seconds on camera)", chart_emotions),
+              ("Attention through the day", chart_timeline), ("Students present per date", chart_present)]
+
+    # the dashboard on the page
+    st.caption(f"{start} to {end}, {len(students)} student(s)")
+    cols = st.columns(3)
+    for k, (label, value) in enumerate(kpis.items()):
+        cols[k % 3].metric(label, value)
+    cols = st.columns(2)
+    for k, (title, draw) in enumerate(charts):
+        fig, ax = plt.subplots(figsize=(6, 3.4))
+        draw(ax)
+        finish(ax, title)
+        fig.tight_layout()
+        cols[k % 2].pyplot(fig)
+        plt.close(fig)
+
+    # the same dashboard as a PDF (A4 pages, two charts per page)
+    pdf = io.BytesIO()
+    with PdfPages(pdf) as doc:
+        for k in range(0, len(charts), 2):
+            fig, axes = plt.subplots(2, 1, figsize=(8.27, 11.69))
+            for ax, (title, draw) in zip(axes, charts[k:k + 2]):
+                draw(ax)
+                finish(ax, title)
+            fig.subplots_adjust(top=0.60 if k == 0 else 0.94, bottom=0.08, hspace=0.6, left=0.16, right=0.95)
+            if k == 0:
+                fig.text(0.08, 0.95, "Class Mind: Class Dashboard", fontsize=22, fontweight="bold", color="#10283F")
+                fig.text(0.08, 0.925, f"{start} to {end}  |  {len(students)} student(s)  |  created {bahrain_time():%Y-%m-%d %H:%M} Bahrain time",
+                         fontsize=9, color="#4A6656")
+                for j, (label, value) in enumerate(kpis.items()):
+                    fig.text(0.08 + 0.45 * (j % 2), 0.86 - (j // 2) * 0.075, str(value), fontsize=22, fontweight="bold", color="#6B9080")
+                    fig.text(0.08 + 0.45 * (j % 2), 0.838 - (j // 2) * 0.075, label, fontsize=10, color="#10283F")
+            doc.savefig(fig)
+            plt.close(fig)
+    st.download_button("Download dashboard (PDF)", pdf.getvalue(), f"class_dashboard_{start}_to_{end}.pdf", "application/pdf")
+    
 else:   # monitoring and report share one page so the camera keeps running while you read the report
     tab_live, tab_report = st.tabs(["Live monitoring", "Report"])
 
