@@ -70,10 +70,9 @@ def live_view():
 # sidebar
 page = st.sidebar.radio("Page", ["Class", "Enroll"])
 gone_secs = st.sidebar.number_input("Mark as 'left class' after (seconds not seen)", 10, 1800, 60)
-debug = st.sidebar.checkbox("Show debug values")
 sender = st.sidebar.text_input("Sender email (for parent notifications)").strip()
 password = st.sidebar.text_input("Sender password", type="password")
-S["settings"] = {"gone_secs": int(gone_secs), "debug": debug, "mail": {"on": bool(sender and password), "sender": sender, "password": password}}
+S["settings"] = {"gone_secs": int(gone_secs), "mail": {"on": bool(sender and password), "sender": sender, "password": password}}
 
 if page == "Enroll":
     st.header("Enroll students")
