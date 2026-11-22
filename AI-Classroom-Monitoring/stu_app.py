@@ -183,8 +183,7 @@ elif page == "Dashboard":
     timeline = timeline.groupby("Time slot")["Attention"].apply(lambda x: 100 * (x == "Attentive").mean()).rename("Attentive %").reset_index()
     timeline_chart = alt.Chart(timeline).mark_line(point=True, strokeWidth=3, color="#4A6FA5").encode(
         x=alt.X("Time slot:N", sort=None, title="Time"), y=alt.Y("Attentive %:Q", scale=alt.Scale(domain=[0, 100]), title="Attentive (%)"),
-        tooltip=["Time slot:N", alt.Tooltip("Attentive %:Q", format=".1f")]
-    ).properties(title="Attention throughout the day", height=300)
+        tooltip=["Time slot:N", alt.Tooltip("Attentive %:Q", format=".1f")]).properties(title="Attention throughout the day", height=300)
 
     # 6. Daily attendance — area chart
     daily = data.groupby("Date")["Student"].nunique().rename("Students").reset_index().sort_values("Date")
