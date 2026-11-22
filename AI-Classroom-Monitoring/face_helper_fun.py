@@ -74,7 +74,7 @@ S = {"detector": cv2.FaceDetectorYN.create(DETECTOR_PATH, "", (320, 320), score_
      "db": load_pickle(DB_PATH),              # { "Sara": [embedding, ...] }
      "parents": load_pickle(PARENTS_PATH),    # { "Sara": "parent@example.com" }
      "att": load_pickle(ATTENDANCE_PATH),     # attendance memory, see video_callback
-     "settings": {"gone_secs": 60, "debug": False, "mail": {"on": False, "sender": "", "password": ""}},
+     "settings": {"gone_secs": 60, "mail": {"on": False, "sender": "", "password": ""}},
      "states": {}, "latest": {},              # attention timers / last label per student
      "email_log": [], "overlay": [],
      "last_process": 0.0, "last_log": 0.0, "last_save": 0.0}
@@ -167,7 +167,7 @@ def video_callback(frame):
                     name = best if score >= MATCH_THRESHOLD else "Unknown"
                     break
             if name == "Unknown":
-                overlay.append(box + ("Unknown", (150, 150, 150), ""))
+                overlay.append(box + ("Unknown", (150, 150, 150)))
                 continue
 
             # attendance: first sighting of the day, last seen, time in class
@@ -221,10 +221,9 @@ def video_callback(frame):
             emotion = max(set(votes), key=votes.count) if votes else "Neutral"   # most common = steadier result
 
             S["latest"][name] = {"ts": now, "label": label, "emotion": emotion}
-            debug = f"ear {ear:.2f} yaw {yaw:.2f} pitch {pitch:.2f}" if S["settings"]["debug"] else ""
-            overlay.append(box + (f"{name}: {label} ({emotion})", COLORS[label], debug))
+            overlay.append(box + (f"{name}: {label} ({emotion})", COLORS[label]))
         S["overlay"] = overlay
-
+        
     # once per second: mark students who left, write log rows, save attendance
     if now - S["last_log"] >= 1:
         S["last_log"] = now
@@ -250,10 +249,8 @@ def video_callback(frame):
 
     # draw the boxes and names on the video
     h, w = img.shape[:2]
-    for x1, y1, x2, y2, text, color, debug in list(S["overlay"]):
+    for x1, y1, x2, y2, text, color in list(S["overlay"]):
         x1, y1, x2, y2 = int(x1 * w), int(y1 * h), int(x2 * w), int(y2 * h)
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
         cv2.putText(img, text, (x1, max(y1 - 8, 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-        if debug:
-            cv2.putText(img, debug, (x1, y2 + 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     return av.VideoFrame.from_ndarray(img, format="bgr24")
