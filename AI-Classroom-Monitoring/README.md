@@ -1,5 +1,5 @@
 # 🧠 Class Mind: AI Classroom Monitoring  [![Streamlit App](https://img.shields.io/badge/Streamlit-Live%20Demo-FF4B4B?logo=streamlit&logoColor=white)](https://class-mind2.streamlit.app/)
-[![View Presentation](https://img.shields.io/badge/View-PowerPoint-D24726?logo=microsoftpowerpoint&logoColor=white)](https://view.officeapps.live.com/op/view.aspx?src=https://raw.githubusercontent.com/fatemahshaker7-sudo/Projects/edit/main/AI-Classroom-Monitoring/assets/ClassMind2.pptx)
+[![PowerPoint](https://img.shields.io/badge/View_Presentation-PowerPoint-orange?logo=microsoftpowerpoint&logoColor=white)](https://github.com/fatemahshaker7-sudo/Projects/blob/main/AI-Classroom-Monitoring/assets/ClassMind2.pptx)
 
 A Streamlit app that recognizes students through a camera to take attendance automatically, estimates their attention and emotion, emails parents when a child arrives or leaves, and saves a log the teacher can analyze in Excel.
 
