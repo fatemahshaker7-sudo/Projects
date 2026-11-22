@@ -62,14 +62,24 @@ def live_view():
     if mail["on"]:
         st.text("\n".join(S["email_log"][-5:]) or "No emails sent yet.")
 
-page = st.sidebar.radio("Page", ["Class", "Enroll", "Dashboard"])
-gone_secs = st.sidebar.number_input("Mark as 'left class' after (seconds not seen)", 10, 1800, 60)
-sender = st.sidebar.text_input("Sender email (for parent notifications)").strip()
-password = st.sidebar.text_input("Sender password", type="password")
-S["settings"] = {"gone_secs": int(gone_secs), "mail": {"on": bool(sender and password), "sender": sender, "password": password}}
+st.session_state.setdefault("gone_secs", 60)
+st.session_state.setdefault("sender_email", "")
+st.session_state.setdefault("sender_password", "")
+
+page = st.radio("Navigate", ["Class", "Enroll", "Dashboard"],
+    format_func=lambda p: {"Class": "🎓", "Enroll": "👤", "Dashboard": "📊"}[p],
+    horizontal=True, label_visibility="collapsed")
+sender = st.session_state.sender_email.strip()
+password = st.session_state.sender_password
+S["settings"] = {"gone_secs": int(st.session_state.gone_secs), "mail": {"on": bool(sender and password), "sender": sender, "password": password}}
 
 if page == "Enroll":
     st.header("Enroll students")
+    with st.expander("Parent email notifications", expanded=False):
+        st.text_input("Sender email", key="sender_email", placeholder="you@gmail.com")
+        st.text_input("Sender password / app password", type="password", key="sender_password")
+        sender, password = st.session_state.sender_email.strip(), st.session_state.sender_password
+        S["settings"]["mail"] = {"on": bool(sender and password), "sender": sender, "password": password}
     name, email = st.text_input("Student name").strip(), st.text_input("Parent email").strip()
     valid_email = "@" in email and "." in email.split("@")[-1]
     if email and not valid_email:
@@ -133,8 +143,7 @@ elif page == "Dashboard":
     class_secs = data.groupby(["Date", "Student"])["Time_in_class_secs"].max()
     emo = seen.loc[seen["Emotion"] != "", "Emotion"]
     attention = round(100 * (seen["Attention"] == "Attentive").mean(), 1) if not seen.empty else 0
-    
-    kpis = { "Students": data["Student"].nunique(),
+    kpis = {"Students": data["Student"].nunique(),
         "Days": data["Date"].nunique(),
         "Hours in class": round(class_secs.sum() / 3600, 1),
         "Average attention": f"{attention}%",
@@ -165,10 +174,10 @@ elif page == "Dashboard":
 
     # 3. Time in class — lollipop chart
     hours_df = class_secs.groupby("Student").sum().div(3600).rename("Hours").reset_index()
-    hours_chart = alt.layer( alt.Chart(hours_df).mark_rule(color="#B8C0BC", strokeWidth=3).encode(
-        y=alt.Y("Student:N", sort="-x", title=None), x=alt.X("Hours:Q", title="Hours in class") ),
-        alt.Chart(hours_df).mark_circle(size=150, color="#6B9080").encode(
-        y=alt.Y("Student:N", sort="-x", title=None), x="Hours:Q", tooltip=["Student:N", alt.Tooltip("Hours:Q", format=".2f")]) ).properties(title="Hours in class by student", height=300)
+    hours_chart = alt.layer(alt.Chart(hours_df).mark_rule(color="#B8C0BC", strokeWidth=3).encode(
+            y=alt.Y("Student:N", sort="-x", title=None), x=alt.X("Hours:Q", title="Hours in class") ),
+            alt.Chart(hours_df).mark_circle(size=150, color="#6B9080").encode(
+            y=alt.Y("Student:N", sort="-x", title=None), x="Hours:Q", tooltip=["Student:N", alt.Tooltip("Hours:Q", format=".2f")]  ) ).properties(title="Hours in class by student", height=300)
 
     # 4. Emotion distribution — donut chart
     emotion_df = emo.value_counts().rename_axis("Emotion").reset_index(name="Records")
@@ -183,18 +192,19 @@ elif page == "Dashboard":
     timeline = timeline.groupby("Time slot")["Attention"].apply(lambda x: 100 * (x == "Attentive").mean()).rename("Attentive %").reset_index()
     timeline_chart = alt.Chart(timeline).mark_line(point=True, strokeWidth=3, color="#4A6FA5").encode(
         x=alt.X("Time slot:N", sort=None, title="Time"), y=alt.Y("Attentive %:Q", scale=alt.Scale(domain=[0, 100]), title="Attentive (%)"),
-        tooltip=["Time slot:N", alt.Tooltip("Attentive %:Q", format=".1f")]).properties(title="Attention throughout the day", height=300)
+        tooltip=["Time slot:N", alt.Tooltip("Attentive %:Q", format=".1f")] ).properties(title="Attention throughout the day", height=300)
 
     # 6. Daily attendance — area chart
     daily = data.groupby("Date")["Student"].nunique().rename("Students").reset_index().sort_values("Date")
     daily_chart = alt.Chart(daily).mark_area(line={"color": "#6B9080"}, color="#6B9080", opacity=.3).encode(
         x=alt.X("Date:N", sort=None, title="Date", axis=alt.Axis(labelAngle=-35)),
         y=alt.Y("Students:Q", title="Students recorded", scale=alt.Scale(zero=True)),
-        tooltip=["Date:N", "Students:Q"] ).properties(title="Daily attendance trend", height=300)
+        tooltip=["Date:N", "Students:Q"]).properties(title="Daily attendance trend", height=300)
 
-    chart_pairs = [(attention_chart, "Attention distribution"), (heat_chart, "Attention states by student"),
+    chart_pairs = [
+        (attention_chart, "Attention distribution"), (heat_chart, "Attention states by student"),
         (hours_chart, "Hours in class by student"), (emotion_chart, "Recorded emotion distribution"),
-        (timeline_chart, "Attention throughout the day"), (daily_chart, "Daily attendance trend") ]
+        (timeline_chart, "Attention throughout the day"), (daily_chart, "Daily attendance trend")]
     for i in range(0, len(chart_pairs), 2):
         c1, c2 = st.columns(2)
         for col, (chart, _) in zip((c1, c2), chart_pairs[i:i + 2]):
@@ -254,7 +264,7 @@ elif page == "Dashboard":
 
     pdf_charts = [ ("Attention distribution", draw_attention), ("Attention states by student", draw_heat),
         ("Hours in class by student", draw_hours), ("Recorded emotion distribution", draw_emotions),
-        ("Attention throughout the day", draw_timeline), ("Daily attendance trend", draw_daily) ]
+        ("Attention throughout the day", draw_timeline), ("Daily attendance trend", draw_daily)]
     
     pdf = io.BytesIO()
     with PdfPages(pdf) as doc:
@@ -274,6 +284,9 @@ elif page == "Dashboard":
             plt.close(fig)
     st.download_button("Download dashboard (PDF)", pdf.getvalue(), f"class_dashboard_{start}_to_{end}.pdf", "application/pdf")
 else:
+    st.header("Class")
+    gone_secs = st.number_input("Mark as 'left class' after (seconds not seen)", 10, 1800, key="gone_secs")
+    S["settings"]["gone_secs"] = int(gone_secs)
     tab_live, tab_report = st.tabs(["Live monitoring", "Report"])
     with tab_live:
         if not S["db"]:
