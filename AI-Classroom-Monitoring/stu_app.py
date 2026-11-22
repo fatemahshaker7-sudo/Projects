@@ -6,6 +6,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import smtplib, time
 from datetime import datetime
 from email.message import EmailMessage
+import altair as alt
 import cv2, numpy as np, pandas as pd, streamlit as st
 from streamlit_webrtc import WebRtcMode, webrtc_streamer
 from style import apply_style
@@ -105,96 +106,171 @@ elif page == "Dashboard":
     if log.empty:
         st.info("No data yet. Run a monitoring session first.")
         st.stop()
-    dates, all_students = sorted(log["Date"].unique()), sorted(log["Student"].unique())
+
+    dates, all_students = sorted(log["Date"].dropna().astype(str).unique()), sorted(log["Student"].dropna().unique())
     c1, c2 = st.columns(2)
-    start, end = c1.selectbox("From", dates, index=0), c2.selectbox("To", dates, index=len(dates) - 1)
+    start = c1.selectbox("From", dates, index=0)
+    end = c2.selectbox("To", dates, index=len(dates) - 1)
+    if start > end:
+        st.warning("The start date must be before the end date.")
+        st.stop()
     students = st.multiselect("Students", all_students, default=all_students)
-    data = log[(log["Date"] >= start) & (log["Date"] <= end) & log["Student"].isin(students)]
+    if not students:
+        st.info("Select at least one student.")
+        st.stop()
+
+    data = log[(log["Date"].astype(str) >= start) & (log["Date"].astype(str) <= end) & log["Student"].isin(students)].copy()
     if data.empty:
         st.warning("No data for this selection.")
         st.stop()
-    seen = data[data["Visible"] == 1]
+
+    data["Visible"] = pd.to_numeric(data["Visible"], errors="coerce").fillna(0)
+    data["Time_in_class_secs"] = pd.to_numeric(data["Time_in_class_secs"], errors="coerce").fillna(0)
+    data["Times_left"] = pd.to_numeric(data["Times_left"], errors="coerce").fillna(0)
+    seen = data[data["Visible"] == 1].copy()
+    seen["Emotion"] = seen["Emotion"].fillna("")
+    seen["Attention"] = seen["Attention"].fillna("Unknown")
     class_secs = data.groupby(["Date", "Student"])["Time_in_class_secs"].max()
-    emo = seen["Emotion"].dropna()
-    emo = emo[emo != ""]
-    attention = round(100 * (seen["Attention"] == "Attentive").mean(), 1) if len(seen) else 0
-    kpis = {"Students": data["Student"].nunique(), "Days": data["Date"].nunique(), "Hours in class": round(class_secs.sum() / 3600, 1), "Average attention": f"{attention}%", "Times left class": int(data.groupby(["Date", "Student"])["Times_left"].max().sum()), "Most common emotion": emo.mode()[0] if len(emo) else "-"}
-    STATES = ["Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible"]
-    STATE_COLORS = ["#6B9080", "#E9B44C", "#D1603D", "#4A6FA5", "#7D5BA6", "#B8C0BC"]
+    emo = seen.loc[seen["Emotion"] != "", "Emotion"]
+    attention = round(100 * (seen["Attention"] == "Attentive").mean(), 1) if not seen.empty else 0
     
-    def chart_attention(ax):
-        pct = seen.groupby("Student")["Attention"].apply(lambda s: 100 * (s == "Attentive").mean())
-        ax.barh(pct.index, pct.values, color="#6B9080")
-        ax.set_xlim(0, 100)
-        ax.set_xlabel("% of on-camera time attentive")
-        
-    def chart_breakdown(ax):
-        secs = data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0)
-        left = np.zeros(len(secs))
-        for state, color in zip(STATES, STATE_COLORS):
-            ax.barh(secs.index, secs[state], left=left, color=color, label=state)
-            left += secs[state].values
-        ax.set_xlim(0, secs.sum(axis=1).max() * 1.4)
-        ax.set_xlabel("Seconds")
-        ax.legend(fontsize=7, loc="center right")
-        
-    def chart_hours(ax):
-        hours = class_secs.groupby("Student").sum() / 3600
-        ax.bar(hours.index, hours.values, color="#10283F")
-        ax.set_ylabel("Hours in class")
-        ax.tick_params(axis="x", rotation=30)
-        
-    def chart_emotions(ax):
-        counts = emo.value_counts()
-        ax.bar(counts.index, counts.values, color="#6B9080")
-        ax.set_ylabel("Seconds")
-        ax.tick_params(axis="x", rotation=30)
-        
-    def chart_timeline(ax):
-        slot = pd.to_datetime(seen["Time"], format="%H:%M:%S").dt.floor("5min").dt.strftime("%H:%M")
-        line = (seen["Attention"] == "Attentive").groupby(slot).mean() * 100
-        ax.plot(range(len(line)), line.values, color="#6B9080", marker="o")
-        step = max(1, len(line) // 8)
-        ax.set_xticks(range(0, len(line), step))
-        ax.set_xticklabels(line.index[::step], rotation=45)
-        ax.set_ylim(0, 100)
-        ax.set_ylabel("% attentive (5-minute blocks)")
-        
-    def chart_present(ax):
-        present = data.groupby("Date")["Student"].nunique()
-        ax.bar(present.index, present.values, color="#10283F")
-        ax.set_ylabel("Students")
-        ax.tick_params(axis="x", rotation=30)
+    kpis = { "Students": data["Student"].nunique(),
+        "Days": data["Date"].nunique(),
+        "Hours in class": round(class_secs.sum() / 3600, 1),
+        "Average attention": f"{attention}%",
+        "Times left class": int(data.groupby(["Date", "Student"])["Times_left"].max().sum()),
+        "Most common emotion": emo.mode().iloc[0] if not emo.empty else "-" }
+
+    STATES = ["Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible"]
+    COLORS = ["#6B9080", "#E9B44C", "#D1603D", "#4A6FA5", "#7D5BA6", "#B8C0BC"]
+    st.caption(f"{start} to {end} · {len(students)} selected student(s)")
+    cols = st.columns(3)
+    for i, (label, value) in enumerate(kpis.items()):
+        cols[i % 3].metric(label, value)
+
+    st.subheader("Class insights")
+    # 1. Attention distribution — donut chart
+    attention_df = seen["Attention"].value_counts().rename_axis("State").reset_index(name="Records")
+    attention_chart = alt.Chart(attention_df).mark_arc(innerRadius=65).encode(
+        theta=alt.Theta("Records:Q"), color=alt.Color("State:N", scale=alt.Scale(domain=STATES, range=COLORS)),
+        tooltip=["State:N", "Records:Q"]).properties(title="Attention distribution", height=300)
+
+    # 2. Attention by student and state — heatmap
+    heat = data.groupby(["Student", "Attention"]).size().reset_index(name="Records")
+    heat_chart = alt.Chart(heat).mark_rect(cornerRadius=3).encode(
+        x=alt.X("Attention:N", sort=STATES, title=None, axis=alt.Axis(labelAngle=-35)),
+        y=alt.Y("Student:N", title=None, sort=all_students),
+        color=alt.Color("Records:Q", scale=alt.Scale(scheme="tealblues")),
+        tooltip=["Student:N", "Attention:N", "Records:Q"] ).properties(title="Attention states by student", height=300)
+
+    # 3. Time in class — lollipop chart
+    hours_df = class_secs.groupby("Student").sum().div(3600).rename("Hours").reset_index()
+    hours_chart = alt.layer( alt.Chart(hours_df).mark_rule(color="#B8C0BC", strokeWidth=3).encode(
+        y=alt.Y("Student:N", sort="-x", title=None), x=alt.X("Hours:Q", title="Hours in class") ),
+        alt.Chart(hours_df).mark_circle(size=150, color="#6B9080").encode(
+        y=alt.Y("Student:N", sort="-x", title=None), x="Hours:Q", tooltip=["Student:N", alt.Tooltip("Hours:Q", format=".2f")]) ).properties(title="Hours in class by student", height=300)
+
+    # 4. Emotion distribution — donut chart
+    emotion_df = emo.value_counts().rename_axis("Emotion").reset_index(name="Records")
+    emotion_chart = alt.Chart(emotion_df).mark_arc(innerRadius=65).encode(
+        theta=alt.Theta("Records:Q"), color=alt.Color("Emotion:N", legend=alt.Legend(title="Emotion")),
+        tooltip=["Emotion:N", "Records:Q"] ).properties(title="Recorded emotion distribution", height=300)
+
+    # 5. Attention over time — line chart in five-minute intervals
+    timeline = seen.copy()
+    timeline["Time slot"] = pd.to_datetime(timeline["Time"], format="%H:%M:%S", errors="coerce").dt.floor("5min").dt.strftime("%H:%M")
+    timeline = timeline.dropna(subset=["Time slot"])
+    timeline = timeline.groupby("Time slot")["Attention"].apply(lambda x: 100 * (x == "Attentive").mean()).rename("Attentive %").reset_index()
+    timeline_chart = alt.Chart(timeline).mark_line(point=True, strokeWidth=3, color="#4A6FA5").encode(
+        x=alt.X("Time slot:N", sort=None, title="Time"), y=alt.Y("Attentive %:Q", scale=alt.Scale(domain=[0, 100]), title="Attentive (%)"),
+        tooltip=["Time slot:N", alt.Tooltip("Attentive %:Q", format=".1f")]
+    ).properties(title="Attention throughout the day", height=300)
+
+    # 6. Daily attendance — area chart
+    daily = data.groupby("Date")["Student"].nunique().rename("Students").reset_index().sort_values("Date")
+    daily_chart = alt.Chart(daily).mark_area(line={"color": "#6B9080"}, color="#6B9080", opacity=.3).encode(
+        x=alt.X("Date:N", sort=None, title="Date", axis=alt.Axis(labelAngle=-35)),
+        y=alt.Y("Students:Q", title="Students recorded", scale=alt.Scale(zero=True)),
+        tooltip=["Date:N", "Students:Q"] ).properties(title="Daily attendance trend", height=300)
+
+    chart_pairs = [(attention_chart, "Attention distribution"), (heat_chart, "Attention states by student"),
+        (hours_chart, "Hours in class by student"), (emotion_chart, "Recorded emotion distribution"),
+        (timeline_chart, "Attention throughout the day"), (daily_chart, "Daily attendance trend") ]
+    for i in range(0, len(chart_pairs), 2):
+        c1, c2 = st.columns(2)
+        for col, (chart, _) in zip((c1, c2), chart_pairs[i:i + 2]):
+            col.altair_chart(chart, use_container_width=True)
+
+    # PDF export uses Matplotlib; the on-page dashboard uses interactive Altair charts.
     def finish(ax, title):
         ax.set_title(title, loc="left", fontsize=11, fontweight="bold", color="#10283F")
         ax.spines[["top", "right"]].set_visible(False)
-    charts = [("Attention by student", chart_attention), ("Attention states (seconds)", chart_breakdown), ("Hours in class by student", chart_hours), ("Emotions (seconds on camera)", chart_emotions), ("Attention through the day", chart_timeline), ("Students present per date", chart_present)]
-    st.caption(f"{start} to {end}, {len(students)} student(s)")
-    cols = st.columns(3)
-    for k, (label, value) in enumerate(kpis.items()):
-        cols[k % 3].metric(label, value)
-    cols = st.columns(2)
-    for k, (title, draw) in enumerate(charts):
-        fig, ax = plt.subplots(figsize=(6, 3.4))
-        draw(ax)
-        finish(ax, title)
-        fig.tight_layout()
-        cols[k % 2].pyplot(fig)
-        plt.close(fig)
+        ax.grid(axis="y", alpha=.2)
+
+    def draw_attention(ax):
+        counts = seen["Attention"].value_counts()
+        if counts.empty:
+            ax.text(.5, .5, "No attention data", ha="center", va="center")
+        else:
+            ax.pie(counts, labels=counts.index, autopct="%1.0f%%", startangle=90, wedgeprops={"width": .42, "edgecolor": "white"})
+            ax.set_aspect("equal")
+
+    def draw_heat(ax):
+        matrix = data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0)
+        if matrix.empty:
+            ax.text(.5, .5, "No attention data", ha="center", va="center")
+        else:
+            im = ax.imshow(matrix.values, aspect="auto", cmap="YlGnBu")
+            ax.set_yticks(range(len(matrix)), matrix.index)
+            ax.set_xticks(range(len(STATES)), STATES, rotation=30, ha="right")
+            ax.figure.colorbar(im, ax=ax, label="Records")
+
+    def draw_hours(ax):
+        hours = hours_df.sort_values("Hours")
+        ax.hlines(hours["Student"], 0, hours["Hours"], color="#B8C0BC", linewidth=3)
+        ax.scatter(hours["Hours"], hours["Student"], color="#6B9080", s=55)
+        ax.set_xlabel("Hours in class")
+
+    def draw_emotions(ax):
+        if emotion_df.empty:
+            ax.text(.5, .5, "No emotion data", ha="center", va="center")
+        else:
+            ax.pie(emotion_df["Records"], labels=emotion_df["Emotion"], autopct="%1.0f%%", startangle=90, wedgeprops={"width": .42, "edgecolor": "white"})
+            ax.set_aspect("equal")
+
+    def draw_timeline(ax):
+        if timeline.empty:
+            ax.text(.5, .5, "No camera-visible data", ha="center", va="center")
+        else:
+            ax.plot(timeline["Time slot"], timeline["Attentive %"], marker="o", color="#4A6FA5")
+            ax.set_ylim(0, 100)
+            ax.set_ylabel("Attentive (%)")
+            ax.tick_params(axis="x", rotation=35)
+
+    def draw_daily(ax):
+        ax.fill_between(range(len(daily)), daily["Students"], alpha=.2, color="#6B9080")
+        ax.plot(range(len(daily)), daily["Students"], marker="o", color="#6B9080")
+        ax.set_xticks(range(len(daily)), daily["Date"], rotation=35)
+        ax.set_ylabel("Students recorded")
+
+    pdf_charts = [ ("Attention distribution", draw_attention), ("Attention states by student", draw_heat),
+        ("Hours in class by student", draw_hours), ("Recorded emotion distribution", draw_emotions),
+        ("Attention throughout the day", draw_timeline), ("Daily attendance trend", draw_daily) ]
+    
     pdf = io.BytesIO()
     with PdfPages(pdf) as doc:
-        for k in range(0, len(charts), 2):
+        for k in range(0, len(pdf_charts), 2):
             fig, axes = plt.subplots(2, 1, figsize=(8.27, 11.69))
-            for ax, (title, draw) in zip(axes, charts[k:k + 2]):
+            for ax, (title, draw) in zip(axes, pdf_charts[k:k + 2]):
                 draw(ax)
                 finish(ax, title)
-            fig.subplots_adjust(top=0.60 if k == 0 else 0.94, bottom=0.08, hspace=0.6, left=0.16, right=0.95)
+            fig.subplots_adjust(top=.60 if k == 0 else .94, bottom=.08, hspace=.65, left=.16, right=.95)
             if k == 0:
-                fig.text(0.08, 0.95, "Class Mind: Class Dashboard", fontsize=22, fontweight="bold", color="#10283F")
-                fig.text(0.08, 0.925, f"{start} to {end}  |  {len(students)} student(s)  |  created {bahrain_time():%Y-%m-%d %H:%M} Bahrain time", fontsize=9, color="#4A6656")
+                fig.text(.08, .95, "Class Mind: Class Dashboard", fontsize=22, fontweight="bold", color="#10283F")
+                fig.text(.08, .925, f"{start} to {end} | {len(students)} student(s) | {bahrain_time():%Y-%m-%d %H:%M} Bahrain time", fontsize=9, color="#4A6656")
                 for j, (label, value) in enumerate(kpis.items()):
-                    fig.text(0.08 + 0.45 * (j % 2), 0.86 - (j // 2) * 0.075, str(value), fontsize=22, fontweight="bold", color="#6B9080")
-                    fig.text(0.08 + 0.45 * (j % 2), 0.838 - (j // 2) * 0.075, label, fontsize=10, color="#10283F")
+                    fig.text(.08 + .45 * (j % 2), .86 - (j // 2) * .075, str(value), fontsize=22, fontweight="bold", color="#6B9080")
+                    fig.text(.08 + .45 * (j % 2), .838 - (j // 2) * .075, label, fontsize=10, color="#10283F")
             doc.savefig(fig)
             plt.close(fig)
     st.download_button("Download dashboard (PDF)", pdf.getvalue(), f"class_dashboard_{start}_to_{end}.pdf", "application/pdf")
