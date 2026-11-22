@@ -22,9 +22,7 @@ apply_style()
 EMAIL_EVENTS = ["Arrived", "Left class"]
 EMAILS_PER_REFRESH = 3
 
-SERVERS = {"gmail.com": ("smtp.gmail.com", 465),
-    "outlook.com": ("smtp-mail.outlook.com", 587),
-    "hotmail.com": ("smtp-mail.outlook.com", 587),}
+SERVERS = {"gmail.com": ("smtp.gmail.com", 465), "outlook.com": ("smtp-mail.outlook.com", 587), "hotmail.com": ("smtp-mail.outlook.com", 587),}
 
 EMB_COLS = [f"e{i}" for i in range(128)]
 BACKUP_COLS = ["Student", "Parent_email"] + EMB_COLS
@@ -34,9 +32,7 @@ CHART_GRID = "#E1E8E3"
 
 def style_chart(chart):
     """Apply the shared Class Mind theme to an Altair chart."""
-    return chart.configure(
-        background="#FFFFFF",
-        view=alt.ViewConfig(stroke=None),
+    return chart.configure( background="#FFFFFF", view=alt.ViewConfig(stroke=None),
         axis=alt.AxisConfig( labelColor=CHART_TEXT, titleColor=CHART_TEXT, gridColor=CHART_GRID, domainColor=CHART_GRID, tickColor=CHART_GRID, labelFont="Source Sans 3", titleFont="Source Sans 3", labelFontSize=11, titleFontSize=12,),
         legend=alt.LegendConfig(labelColor=CHART_TEXT, titleColor=CHART_TEXT, labelFont="Source Sans 3", titleFont="Source Sans 3", ),
         title=alt.TitleConfig( color=CHART_TEXT, font="Plus Jakarta Sans", fontSize=15, fontWeight="bold", anchor="start", ), )
@@ -310,7 +306,7 @@ elif page == "Dashboard":
         else:
             ax.pie( counts, labels=counts.index, autopct="%1.0f%%", startangle=90, colors=CHART_COLORS[:len(counts)],
                 wedgeprops={ "width": 0.42, "edgecolor": "white" }, )
-             ax.set_aspect("equal")
+            ax.set_aspect("equal")
 
     def draw_heat(ax):
         matrix = ( data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0))
