@@ -100,10 +100,10 @@ st.session_state.setdefault("sender_password", "")
 
 _, middle, _ = st.columns([1, 2, 1])
 with middle:
-    page = st.segmented_control( "Navigate", ["Enroll", "Class", "Dashboard"],
-    format_func=lambda p: {"Class": "🎓 Class", "Enroll": "👤 Enroll", "Dashboard": "📊 Dashboard"}[p],
-    default="Enroll", label_visibility="collapsed", key="page_nav",) or "Enroll"  # clicking the active option deselects it, so fall back to Class
-
+    page = st.segmented_control( "Navigate", ["Enroll", "Class",  "Dashboard"],
+        format_func=lambda p: {"Class": "🎓 Class", "Enroll": "👤 Enroll", "Dashboard": "📊 Dashboard"}[p], default="Enroll",
+        label_visibility="collapsed", width="stretch", key="page_nav", ) or "Enroll"
+    
 sender = st.session_state.sender_email.strip()
 password = st.session_state.sender_password
 S["settings"] = { "gone_secs": int(st.session_state.gone_secs), "mail": { "on": bool(sender and password), "sender": sender, "password": password, },}
