@@ -141,13 +141,7 @@ if page == "Enroll":
     shot = tab_camera.camera_input("Clear, front-facing photo")
     files = tab_upload.file_uploader( "Upload photos", type=["jpg", "jpeg", "png"], accept_multiple_files=True, )
     uploads = ([shot] if shot else []) + list(files or [])
-    images = [
-        shrink(img, 1280)
-        for img in (cv2.imdecode(
-                np.frombuffer(upload.getvalue(), np.uint8),
-                cv2.IMREAD_COLOR,)
-            for upload in uploads )
-        if img is not None]
+    images = [ shrink(img, 1280) for img in (cv2.imdecode(np.frombuffer(upload.getvalue(), np.uint8), cv2.IMREAD_COLOR,) for upload in uploads ) if img is not None]
 
     if st.button( "Enroll", disabled=not (name and valid_email and images), ):
         added = 0
@@ -155,7 +149,7 @@ if page == "Enroll":
         for img in images:
             faces = detect_faces(img)
 
-            if faces:
+            if len(faces) > 0:
                 largest_face = max( faces, key=lambda face: face[2] * face[3], )
                 S["db"].setdefault(name, []).append( get_embedding(img, largest_face))
                 added += 1
