@@ -185,27 +185,30 @@ elif page == "Dashboard":
 
     dates = sorted(log["Date"].dropna().astype(str).unique())
     all_students = sorted(log["Student"].dropna().unique())
-    col_start, col_end = st.columns(2)
-    start = col_start.selectbox("From", dates, index=0)
-    end = col_end.selectbox("To", dates, index=len(dates) - 1)
+
+    # Filter bar
+    with st.container(border=True):
+        f1, f2, f3 = st.columns([1, 1, 3])
+        start = f1.selectbox("From", dates, index=0)
+        end = f2.selectbox("To", dates, index=len(dates) - 1)
+        students = f3.multiselect("Students", all_students, default=all_students)
 
     if start > end:
         st.warning("The start date must be before the end date.")
         st.stop()
 
-    students = st.multiselect( "Students", all_students, default=all_students, )
-
     if not students:
         st.info("Select at least one student.")
         st.stop()
 
-    data = log[ (log["Date"].astype(str) >= start) & (log["Date"].astype(str) <= end) & log["Student"].isin(students)].copy()
+    data = log[ (log["Date"].astype(str) >= start) & (log["Date"].astype(str) <= end) & log["Student"].isin(students) ].copy()
 
     if data.empty:
         st.warning("No data for this selection.")
         st.stop()
 
-    data["Visible"] = pd.to_numeric( data["Visible"], errors="coerce").fillna(0)
+    # Data prep
+    data["Visible"] = pd.to_numeric(data["Visible"], errors="coerce").fillna(0)
     data["Time_in_class_secs"] = pd.to_numeric(data["Time_in_class_secs"], errors="coerce").fillna(0)
     data["Times_left"] = pd.to_numeric(data["Times_left"], errors="coerce").fillna(0)
     seen = data[data["Visible"] == 1].copy()
@@ -213,79 +216,90 @@ elif page == "Dashboard":
     seen["Attention"] = seen["Attention"].fillna("Unknown")
     class_secs = data.groupby(["Date", "Student"])["Time_in_class_secs"].max()
     emo = seen.loc[seen["Emotion"] != "", "Emotion"]
-    attention = (round(100 * (seen["Attention"] == "Attentive").mean(), 1)
-        if not seen.empty
-        else 0)
+    attention = ( round(100 * (seen["Attention"] == "Attentive").mean(), 1) if not seen.empty else 0 )
 
     kpis = {"Students": data["Student"].nunique(),
         "Days": data["Date"].nunique(),
         "Hours in class": round(class_secs.sum() / 3600, 1),
         "Average attention": f"{attention}%",
         "Times left class": int(data.groupby(["Date", "Student"])["Times_left"].max().sum()),
-        "Most common emotion": ( emo.mode().iloc[0] if not emo.empty else "-"),}
+        "Most common emotion": emo.mode().iloc[0] if not emo.empty else "-" }
 
-    STATES = [ "Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible",]
-    st.caption( f"{start} to {end} · {len(students)} selected student(s)")
-    metric_columns = st.columns(3)
-    for index, (label, value) in enumerate(kpis.items()):
-        metric_columns[index % 3].metric(label, value)
+    STATES = ["Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible"]
+    CHART_H = 260
 
-    st.subheader("Class insights")
+    #  KPI cards 
+    st.caption(f"{start} to {end} · {len(students)} selected student(s)")
+    kpi_cols = st.columns(len(kpis))
+    for col, (label, value) in zip(kpi_cols, kpis.items()):
+        with col.container(border=True):
+            st.metric(label, value)
 
-    # 1. Attention distribution
-    attention_df = ( seen["Attention"].value_counts().rename_axis("State").reset_index(name="Records"))
+    #  Chart data
+    attention_df = seen["Attention"].value_counts().rename_axis("State").reset_index(name="Records")
+    heat = data.groupby(["Student", "Attention"]).size().reset_index(name="Records")
+    hours_df = class_secs.groupby("Student").sum().div(3600).rename("Hours").reset_index()
+    emotion_df = emo.value_counts().rename_axis("Emotion").reset_index(name="Records")
+    timeline = seen.copy()
+    timeline["Time slot"] = ( pd.to_datetime(timeline["Time"], format="%H:%M:%S", errors="coerce").dt.floor("5min").dt.strftime("%H:%M"))
+    timeline = timeline.dropna(subset=["Time slot"])
+    timeline = (timeline.groupby("Time slot")["Attention"].apply(lambda v: 100 * (v == "Attentive").mean()).rename("Attentive %").reset_index())
+    daily = (data.groupby("Date")["Student"].nunique().rename("Students").reset_index().sort_values("Date"))
 
-    attention_chart = (alt.Chart(attention_df).mark_arc(innerRadius=65).encode(theta=alt.Theta("Records:Q"),
-            color=alt.Color("State:N", scale=alt.Scale( domain=STATES, range=CHART_COLORS,),),
-            tooltip=["State:N", "Records:Q"], ).properties(title="Attention distribution", height=280,))
+    #  Altair charts (titles live in the card header) 
+    attention_chart = (alt.Chart(attention_df).mark_arc(innerRadius=60).encode(theta=alt.Theta("Records:Q"),color=alt.Color("State:N", scale=alt.Scale(domain=STATES, range=CHART_COLORS)),
+    tooltip=["State:N", "Records:Q"],).properties(height=CHART_H))
+    heat_chart = (alt.Chart(heat).mark_rect(cornerRadius=3).encode(x=alt.X("Attention:N", sort=STATES, title=None, axis=alt.Axis(labelAngle=-30)),
+            y=alt.Y("Student:N", title=None, sort=all_students),
+            color=alt.Color("Records:Q", scale=alt.Scale(scheme="greens"), legend=alt.Legend(title="Records")),
+            tooltip=["Student:N", "Attention:N", "Records:Q"],).properties(height=CHART_H))
 
-    # 2. Attention by student and state
-    heat = (data.groupby(["Student", "Attention"]).size().reset_index(name="Records"))
-    heat_chart = (alt.Chart(heat).mark_rect(cornerRadius=3).encode(x=alt.X("Attention:N",sort=STATES,title=None,axis=alt.Axis(labelAngle=-35),),
-            y=alt.Y("Student:N",title=None,sort=all_students,),
-            color=alt.Color("Records:Q",scale=alt.Scale(scheme="greens"),legend=alt.Legend(title="Records"),),
-            tooltip=["Student:N","Attention:N","Records:Q",],).properties(title="Attention states by student",height=280,))
-
-    # 3. Time in class
-    hours_df = (class_secs.groupby("Student").sum().div(3600).rename("Hours").reset_index())
     hours_chart = alt.layer(alt.Chart(hours_df).mark_rule(color="#C3DCC4", strokeWidth=3).encode(
             y=alt.Y("Student:N", sort="-x", title=None),
-            x=alt.X("Hours:Q", title="Hours in class"),),
-        alt.Chart(hours_df).mark_circle(size=130, color="#6B9080").encode(
+            x=alt.X("Hours:Q", title="Hours in class")),
+            alt.Chart(hours_df).mark_circle(size=130, color="#6B9080").encode(
             y=alt.Y("Student:N", sort="-x", title=None),
             x="Hours:Q",
-            tooltip=["Student:N",alt.Tooltip("Hours:Q", format=".2f"),],),).properties(title="Hours in class by student", height=280,)
+            tooltip=["Student:N", alt.Tooltip("Hours:Q", format=".2f")],),).properties(height=CHART_H)
 
-    # 4. Emotion distribution
-    emotion_df = (emo.value_counts().rename_axis("Emotion").reset_index(name="Records"))
-    emotion_chart = (alt.Chart(emotion_df).mark_arc(innerRadius=65).encode(theta=alt.Theta("Records:Q"),
-            color=alt.Color( "Emotion:N",scale=alt.Scale(scheme="greens"),legend=alt.Legend(title="Emotion"),),
-            tooltip=["Emotion:N", "Records:Q"],).properties(title="Recorded emotion distribution", height=280,))
+    emotion_chart = (alt.Chart(emotion_df).mark_arc(innerRadius=60).encode(theta=alt.Theta("Records:Q"),
+            color=alt.Color("Emotion:N", scale=alt.Scale(scheme="greens"), legend=alt.Legend(title="Emotion")),
+            tooltip=["Emotion:N", "Records:Q"],).properties(height=CHART_H))
 
-    # 5. Attention over time
-    timeline = seen.copy()
-    timeline["Time slot"] = (pd.to_datetime(timeline["Time"],format="%H:%M:%S", errors="coerce",).dt.floor("5min").dt.strftime("%H:%M"))
-    timeline = timeline.dropna(subset=["Time slot"])
-    timeline = (timeline.groupby("Time slot")["Attention"].apply(lambda values: 100 * (values == "Attentive").mean()).rename("Attentive %").reset_index())
-    timeline_chart = (alt.Chart(timeline).mark_line(point=True,strokeWidth=3,color="#6B9080",).encode(x=alt.X("Time slot:N",sort=None, title="Time", ),
-            y=alt.Y( "Attentive %:Q", scale=alt.Scale(domain=[0, 100]),title="Attentive (%)",),
-            tooltip=["Time slot:N", alt.Tooltip("Attentive %:Q", format=".1f"),],).properties(title="Attention throughout the day",height=280,))
+    timeline_chart = (alt.Chart(timeline).mark_area(line={"color": "#6B9080", "strokeWidth": 3}, color="#A8C9AD", opacity=0.35, point=True,).encode(
+            x=alt.X("Time slot:N", sort=None, title="Time"),
+            y=alt.Y("Attentive %:Q", scale=alt.Scale(domain=[0, 100]), title="Attentive (%)"),
+            tooltip=["Time slot:N", alt.Tooltip("Attentive %:Q", format=".1f")],).properties(height=CHART_H))
 
-    # 6. Daily attendance
-    daily = (data.groupby("Date")["Student"].nunique().rename("Students").reset_index().sort_values("Date"))
-    daily_chart = ( alt.Chart(daily).mark_area(line={"color": "#6B9080"},color="#A8C9AD",opacity=0.4,)
-        .encode(x=alt.X( "Date:N",sort=None,title="Date",axis=alt.Axis(labelAngle=-35),),
-        y=alt.Y( "Students:Q", title="Students recorded",scale=alt.Scale(zero=True),),
-        tooltip=["Date:N", "Students:Q"],).properties(title="Daily attendance trend",height=280,))
+    daily_chart = (alt.Chart(daily).mark_bar(color="#8FB5A0", cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+            x=alt.X("Date:N", sort=None, title=None, axis=alt.Axis(labelAngle=-30)),
+            y=alt.Y("Students:Q", title="Students recorded", scale=alt.Scale(zero=True)),
+            tooltip=["Date:N", "Students:Q"],).properties(height=CHART_H))
 
-    # Three charts in each row
-    charts = [ attention_chart, heat_chart, hours_chart, emotion_chart, timeline_chart, daily_chart,]
-    for index in range(0, len(charts), 3):
-        chart_columns = st.columns(3, gap="medium")
-        for column, chart in zip(chart_columns,charts[index:index + 3] ):
-            with column:
-                st.altair_chart(style_chart(chart),use_container_width=True)
-    # PDF EXPORT
+    def card(column, title, chart, empty_text=None):
+        """One bordered dashboard panel: title on top, chart (or empty note) below."""
+        with column.container(border=True):
+            st.markdown(f"**{title}**")
+            if empty_text:
+                st.caption(empty_text)
+            else:
+                st.altair_chart(style_chart(chart), width="stretch")
+
+    #  Layout 
+    st.subheader("Class insights")
+    row1 = st.columns([2, 1], gap="medium")
+    card(row1[0], "Attention throughout the day", timeline_chart,"No camera-visible data." if timeline.empty else None)
+    card(row1[1], "Attention distribution", attention_chart,"No attention data." if attention_df.empty else None)
+
+    row2 = st.columns([2, 1], gap="medium")
+    card(row2[0], "Attention states by student", heat_chart)
+    card(row2[1], "Recorded emotions", emotion_chart,"No emotion data." if emotion_df.empty else None)
+
+    row3 = st.columns(2, gap="medium")
+    card(row3[0], "Hours in class by student", hours_chart)
+    card(row3[1], "Daily attendance", daily_chart)
+
+    #  PDF export (built only when asked) 
     def finish(ax, title):
         ax.set_title(title, loc="left", fontsize=11, fontweight="bold", color="#10283F")
         ax.spines[["top", "right"]].set_visible(False)
@@ -294,81 +308,89 @@ elif page == "Dashboard":
     def draw_attention(ax):
         counts = seen["Attention"].value_counts()
         if counts.empty:
-            ax.text(0.5, 0.5, "No attention data", ha="center", va="center" )
+            ax.text(0.5, 0.5, "No attention data", ha="center", va="center")
         else:
-            ax.pie( counts, labels=counts.index, autopct="%1.0f%%", startangle=90, colors=CHART_COLORS[:len(counts)],
-                wedgeprops={ "width": 0.42, "edgecolor": "white" }, )
+            ax.pie(counts, labels=counts.index, autopct="%1.0f%%", startangle=90,
+                   colors=CHART_COLORS[:len(counts)], wedgeprops={"width": 0.42, "edgecolor": "white"})
             ax.set_aspect("equal")
 
     def draw_heat(ax):
-        matrix = ( data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0))
-
+        matrix = (data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0))
         if matrix.empty:
-            ax.text( 0.5, 0.5, "No attention data", ha="center", va="center")
+            ax.text(0.5, 0.5, "No attention data", ha="center", va="center")
         else:
-            im = ax.imshow( matrix.values, aspect="auto", cmap="Greens")
-            ax.set_yticks( range(len(matrix)), matrix.index)
-            ax.set_xticks( range(len(STATES)), STATES, rotation=30, ha="right")
-            ax.figure.colorbar( im, ax=ax, label="Records" )
+            im = ax.imshow(matrix.values, aspect="auto", cmap="Greens")
+            ax.set_yticks(range(len(matrix)), matrix.index)
+            ax.set_xticks(range(len(STATES)), STATES, rotation=30, ha="right")
+            ax.figure.colorbar(im, ax=ax, label="Records")
 
     def draw_hours(ax):
         hours = hours_df.sort_values("Hours")
-        ax.hlines( hours["Student"], 0, hours["Hours"], color="#C3DCC4", linewidth=3)
-        ax.scatter( hours["Hours"], hours["Student"], color="#6B9080", s=55 )
+        ax.hlines(hours["Student"], 0, hours["Hours"], color="#C3DCC4", linewidth=3)
+        ax.scatter(hours["Hours"], hours["Student"], color="#6B9080", s=55)
         ax.set_xlabel("Hours in class")
 
     def draw_emotions(ax):
         if emotion_df.empty:
-            ax.text( 0.5, 0.5, "No emotion data", ha="center", va="center" )
+            ax.text(0.5, 0.5, "No emotion data", ha="center", va="center")
         else:
-            ax.pie( emotion_df["Records"], labels=emotion_df["Emotion"], autopct="%1.0f%%", startangle=90,
-                colors=CHART_COLORS[:len(emotion_df)], wedgeprops={ "width": 0.42, "edgecolor": "white", })
+            ax.pie(emotion_df["Records"], labels=emotion_df["Emotion"], autopct="%1.0f%%", startangle=90,colors=CHART_COLORS[:len(emotion_df)], wedgeprops={"width": 0.42, "edgecolor": "white"})
             ax.set_aspect("equal")
 
     def draw_timeline(ax):
         if timeline.empty:
-            ax.text( 0.5, 0.5, "No camera-visible data", ha="center", va="center",)
+            ax.text(0.5, 0.5, "No camera-visible data", ha="center", va="center")
         else:
-            ax.plot( timeline["Time slot"], timeline["Attentive %"], marker="o", color="#6B9080" )
+            ax.plot(timeline["Time slot"], timeline["Attentive %"], marker="o", color="#6B9080")
             ax.set_ylim(0, 100)
             ax.set_ylabel("Attentive (%)")
             ax.tick_params(axis="x", rotation=35)
 
     def draw_daily(ax):
-        ax.fill_between(range(len(daily)),daily["Students"],alpha=0.25,color="#A8C9AD")
-        ax.plot( range(len(daily)), daily["Students"], marker="o", color="#6B9080")
-        ax.set_xticks(range(len(daily)),daily["Date"], rotation=35)
+        ax.fill_between(range(len(daily)), daily["Students"], alpha=0.25, color="#A8C9AD")
+        ax.plot(range(len(daily)), daily["Students"], marker="o", color="#6B9080")
+        ax.set_xticks(range(len(daily)), daily["Date"], rotation=35)
         ax.set_ylabel("Students recorded")
 
-    pdf_charts = [ ("Attention distribution", draw_attention),
+    pdf_charts = [("Attention distribution", draw_attention),
         ("Attention states by student", draw_heat),
         ("Hours in class by student", draw_hours),
         ("Recorded emotion distribution", draw_emotions),
         ("Attention throughout the day", draw_timeline),
         ("Daily attendance trend", draw_daily)]
-    pdf = io.BytesIO()
 
-    with PdfPages(pdf) as document:
-        for index in range(0, len(pdf_charts), 2):
-            fig, axes = plt.subplots( 2, 1, figsize=(8.27, 11.69))
-            for ax, (chart_title, draw_function) in zip( axes, pdf_charts[index:index + 2]):
-                draw_function(ax)
-                finish(ax, chart_title)
+    def build_pdf():
+        buffer = io.BytesIO()
+        with PdfPages(buffer) as document:
+            for index in range(0, len(pdf_charts), 2):
+                fig, axes = plt.subplots(2, 1, figsize=(8.27, 11.69))
+                for ax, (chart_title, draw_function) in zip(axes, pdf_charts[index:index + 2]):
+                    draw_function(ax)
+                    finish(ax, chart_title)
 
-            fig.subplots_adjust(top=0.60 if index == 0 else 0.94, bottom=0.08, hspace=0.65, left=0.16, right=0.95 )
+                fig.subplots_adjust(top=0.60 if index == 0 else 0.94, bottom=0.08,hspace=0.65, left=0.16, right=0.95)
 
-            if index == 0:
-                fig.text( 0.08, 0.95, "Class Mind: Class Dashboard", fontsize=22, fontweight="bold", color="#10283F")
-                fig.text( 0.08, 0.925, f"{start} to {end} | {len(students)} student(s) | " f"{bahrain_time():%Y-%m-%d %H:%M} Bahrain time", fontsize=9, color="#4A6656" )
+                if index == 0:
+                    fig.text(0.08, 0.95, "Class Mind: Class Dashboard", fontsize=22,fontweight="bold", color="#10283F")
+                    fig.text(0.08, 0.925,f"{start} to {end} | {len(students)} student(s) | "f"{bahrain_time():%Y-%m-%d %H:%M} Bahrain time",fontsize=9, color="#4A6656")
+                    for j, (label, value) in enumerate(kpis.items()):
+                        fig.text(0.08 + 0.45 * (j % 2), 0.86 - (j // 2) * 0.075, str(value),fontsize=22, fontweight="bold", color="#6B9080")
+                        fig.text(0.08 + 0.45 * (j % 2), 0.838 - (j // 2) * 0.075, label,fontsize=10, color="#10283F")
 
-                for j, (label, value) in enumerate(kpis.items()):
-                    fig.text( 0.08 + 0.45 * (j % 2), 0.86 - (j // 2) * 0.075, str(value), fontsize=22, fontweight="bold", color="#6B9080")
-                    fig.text( 0.08 + 0.45 * (j % 2), 0.838 - (j // 2) * 0.075, label, fontsize=10, color="#10283F" )
+                document.savefig(fig)
+                plt.close(fig)
+        return buffer.getvalue()
 
-            document.savefig(fig)
-            plt.close(fig)
-
-    st.download_button("Download dashboard (PDF)", pdf.getvalue(), f"class_dashboard_{start}_to_{end}.pdf", "application/pdf",)
+    with st.container(border=True):
+        e1, e2 = st.columns([3, 1], vertical_alignment="center")
+        e1.markdown("**Export**  \nDownload this view as a PDF report.")
+        pdf_key = f"{start}|{end}|{','.join(students)}"
+        if e2.button("Prepare PDF", width="stretch"):
+            with st.spinner("Building PDF..."):
+                st.session_state["pdf_bytes"] = build_pdf()
+                st.session_state["pdf_key"] = pdf_key
+        if st.session_state.get("pdf_key") == pdf_key:
+            e2.download_button("Download PDF", st.session_state["pdf_bytes"],f"class_dashboard_{start}_to_{end}.pdf", "application/pdf",width="stretch")
 
 # CLASS PAGE
 else:
@@ -387,9 +409,7 @@ else:
 
             webrtc_streamer( key="classroom", mode=WebRtcMode.SENDRECV, rtc_configuration={ "iceServers": [ {
             "urls": [ "stun:stun.l.google.com:19302" ]}]}, media_stream_constraints={"video": {"width": {"ideal": PROCESS_SIZE},
-            "height": {"ideal": int(PROCESS_SIZE * 0.75)}, "frameRate": {"ideal": 15},}, "audio": False }, video_frame_callback=video_callback,
-            async_processing=True)
-
+            "height": {"ideal": int(PROCESS_SIZE * 0.75)}, "frameRate": {"ideal": 15},}, "audio": False }, video_frame_callback=video_callback, async_processing=True)
             live_view()
 
     with tab_report:
@@ -434,13 +454,8 @@ else:
             for student, group in day_log.groupby("Student"):
                 counts = group["Attention"].value_counts()
                 visible = int((group["Visible"] == 1).sum())
-
-                row = {"Student": student,"Attention %": ( round(100 * counts.get("Attentive", 0) / visible,1)
-                        if visible
-                        else 0.0 ) }
-
-                row.update( {f"{state} (s)": int(counts.get(state, 0))
-                        for state in ["Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible"]})
+                row = {"Student": student,"Attention %": ( round(100 * counts.get("Attentive", 0) / visible,1) if visible else 0.0 ) }
+                row.update( {f"{state} (s)": int(counts.get(state, 0)) for state in ["Attentive", "Looking away", "Side-talking", "Head down", "Sleepy", "Not visible"]})
                 rows.append(row)
 
             if not rows:
@@ -463,32 +478,22 @@ else:
                 st.dataframe( day_log.tail(500), hide_index=True )
 
             pairs = [(date, student, student_data) for date, students_by_day in att.items() for student, student_data in students_by_day.items()]
-
             summary = pd.DataFrame([{ "Date": date, "Student": student, "First_seen": student_data["first_seen"], "Last_seen_of_day": student_data["last_seen"]}
-                    for date, student, student_data in pairs ],
-                columns=[ "Date", "Student", "First_seen", "Last_seen_of_day", ])
+                    for date, student, student_data in pairs ], columns=[ "Date", "Student", "First_seen", "Last_seen_of_day", ])
 
-            event_log = pd.DataFrame(
-                [ { "Date": date, "Time": event_time[11:], "Student": student, "Event": event, "Status": ( "Left class"
-                            if event == "Left class"
-                            else "In class"
-                    )}
+            event_log = pd.DataFrame([ { "Date": date, "Time": event_time[11:], "Student": student, "Event": event, "Status": ( "Left class" if event == "Left class" else "In class")}
                     for date, student, student_data in pairs
-                    for event_time, event in student_data["events"]
-                ])
+                    for event_time, event in student_data["events"] ])
 
-            absent = pd.DataFrame(
-                [{ "Date": date, "Student": student, "Status": "Absent", "Visible": 0, "Attention": "Absent", "Time_in_class_secs": 0, "Time_away_secs": 0, "Times_left": 0,}
+            absent = pd.DataFrame([{ "Date": date, "Student": student, "Status": "Absent", "Visible": 0, "Attention": "Absent", "Time_in_class_secs": 0, "Time_away_secs": 0, "Times_left": 0,}
                     for date, students_by_day in att.items()
-                    for student in names
-                    if student not in students_by_day])
+                    for student in names if student not in students_by_day])
 
             columns = LOG_COLUMNS + [ "Event", "First_seen", "Last_seen_of_day"]
             parts = [ part for part in ( log.assign(Event=""), event_log, absent) if not part.empty]
 
             if parts:
                 full = pd.concat( parts, ignore_index=True).merge( summary, on=["Date", "Student"], how="left" )
-
                 for column in [ "Visible", "Time_in_class_secs", "Time_away_secs", "Times_left"]:
                     full[column] = pd.to_numeric( full[column], errors="coerce" ).astype("Int64")
                 full = full.sort_values( ["Date", "Time", "Student"])[columns]
@@ -503,5 +508,4 @@ else:
                 remaining = load_log()
                 if not remaining.empty:
                     remaining[remaining["Date"] != day].to_csv( LOG_PATH, index=False, )
-
                 st.rerun()
