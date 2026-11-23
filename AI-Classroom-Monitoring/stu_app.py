@@ -98,11 +98,11 @@ st.session_state.setdefault("gone_secs", 60)
 st.session_state.setdefault("sender_email", "")
 st.session_state.setdefault("sender_password", "")
 
-page = st.segmented_control( "Navigate", ["Enroll", "Class", "Dashboard"],
+_, middle, _ = st.columns([1, 2, 1])
+with middle:
+    page = st.segmented_control( "Navigate", ["Enroll", "Class", "Dashboard"],
     format_func=lambda p: {"Class": "🎓 Class", "Enroll": "👤 Enroll", "Dashboard": "📊 Dashboard"}[p],
     default="Enroll", label_visibility="collapsed", key="page_nav",) or "Enroll"  # clicking the active option deselects it, so fall back to Class
-
-#page = st.radio( "Navigate", ["Enroll", "Class", "Dashboard"], format_func=lambda selected_page: { "Class": "🎓  Class", "Enroll": "👤  Enroll", "Dashboard": "📊  Dashboard",}[selected_page],horizontal=True,label_visibility="collapsed",)
 
 sender = st.session_state.sender_email.strip()
 password = st.session_state.sender_password
