@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from streamlit_webrtc import WebRtcMode, webrtc_streamer
-from style import apply_style
 from face_helper_fun import ( S, ATTENDANCE_PATH, LOG_PATH, LOG_COLUMNS,PROCESS_SIZE,snapshot,save_pickle,save_students,shrink,detect_faces,get_embedding,check_left,attendance_table,load_log,video_callback,bahrain_time,)
 
 st.set_page_config(page_title="Class Mind", layout="wide")
