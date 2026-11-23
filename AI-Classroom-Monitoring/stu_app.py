@@ -17,7 +17,6 @@ from style import apply_style
 from face_helper_fun import ( S, ATTENDANCE_PATH, LOG_PATH, LOG_COLUMNS,PROCESS_SIZE,snapshot,save_pickle,save_students,shrink,detect_faces,get_embedding,check_left,attendance_table,load_log,video_callback,bahrain_time,)
 
 st.set_page_config(page_title="Class Mind", layout="wide")
-apply_style()
 
 EMAIL_EVENTS = ["Arrived", "Left class"]
 EMAILS_PER_REFRESH = 3
