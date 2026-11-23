@@ -19,9 +19,7 @@ st.set_page_config(page_title="Class Mind", layout="wide")
 
 EMAIL_EVENTS = ["Arrived", "Left class"]
 EMAILS_PER_REFRESH = 3
-
 SERVERS = {"gmail.com": ("smtp.gmail.com", 465), "outlook.com": ("smtp-mail.outlook.com", 587), "hotmail.com": ("smtp-mail.outlook.com", 587),}
-
 EMB_COLS = [f"e{i}" for i in range(128)]
 BACKUP_COLS = ["Student", "Parent_email"] + EMB_COLS
 CHART_COLORS = [ "#6B9080", "#8FB5A0", "#A8C9AD", "#C3DCC4", "#D9E9D9", "#E8F0E9",]
@@ -44,32 +42,24 @@ def live_view():
 
     for name, student_data in list(S["att"].get(today, {}).items()):
         student_data.setdefault("emailed", len(student_data["events"]))
-
         while student_data["emailed"] < len(student_data["events"]):
             when, event = student_data["events"][student_data["emailed"]]
             emailable = event in EMAIL_EVENTS and mail["on"]
-
             if emailable and sent == EMAILS_PER_REFRESH:
                 break
-
             student_data["emailed"] += 1
-
             if not emailable:
                 continue
-
             sent += 1
             to_addr = S["parents"].get(name)
             domain = mail["sender"].split("@")[-1].lower()
-
             if not to_addr or domain not in SERVERS:
                 S["email_log"].append(f"{bahrain_time():%H:%M:%S}  skipped {name}: "
                     "no parent email saved, or sender is not a Gmail / " "Outlook / Hotmail address" )
                 continue
-
             subject = ( f"{name} arrived at class"
                 if event == "Arrived"
                 else f"{name} left class")
-
             message_text = ( f"{name} arrived in class on {when[:10]} at {when[11:]}."
                 if event == "Arrived"
                 else f"{name} left class on {when[:10]}. " f"{name} was last seen in class at {when[11:]}")
@@ -79,32 +69,27 @@ def live_view():
             msg["From"] = mail["sender"]
             msg["To"] = to_addr
             msg["Subject"] = subject
-            msg.set_content( f"Dear parent,\n\n{message_text}\n\n"
-                "This is an automated message from Class Mind."  )
-
+            msg.set_content( f"Dear parent,\n\n{message_text}\n\n""This is an automated message from Class Mind."  )
+            
             with ( smtplib.SMTP_SSL(host, port, timeout=20)
                 if port == 465
                 else smtplib.SMTP(host, port, timeout=20) ) as server:
                 if port != 465:
                     server.starttls()
-
                 server.login(mail["sender"], mail["password"])
                 server.send_message(msg)
-
             S["email_log"].append( f"{bahrain_time():%H:%M:%S}  sent to {to_addr}: {subject}" )
-
+            
     age = time.time() - S["last_process"] if S["last_process"] else None
-
     if age is None:
         st.info("Waiting for the camera. Press START above.")
     elif age < 5:
         st.success("Camera is connected and students are being tracked.")
     else:
         st.info("No camera frames received in the last few seconds.")
-
+        
     st.subheader("Today's attendance")
     st.dataframe( attendance_table(snapshot(S["att"]), today, list(S["db"])), hide_index=True, )
-
     if mail["on"]:
         st.text("\n".join(S["email_log"][-5:]) or "No emails sent yet.")
 
@@ -113,7 +98,7 @@ st.session_state.setdefault("gone_secs", 60)
 st.session_state.setdefault("sender_email", "")
 st.session_state.setdefault("sender_password", "")
 
-page = st.radio( "Navigate", ["Class", "Enroll", "Dashboard"], format_func=lambda selected_page: { "Class": "🎓  Class", "Enroll": "👤  Enroll", "Dashboard": "📊  Dashboard",}[selected_page],
+page = st.radio( "Navigate", ["Enroll", "Class", "Dashboard"], format_func=lambda selected_page: { "Class": "🎓  Class", "Enroll": "👤  Enroll", "Dashboard": "📊  Dashboard",}[selected_page],
     horizontal=True,label_visibility="collapsed",)
 sender = st.session_state.sender_email.strip()
 password = st.session_state.sender_password
