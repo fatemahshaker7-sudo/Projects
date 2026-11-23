@@ -171,7 +171,7 @@ AI-Classroom-Monitoring/
 
 ## Screenshots / demo
 
-https://github.com/user-attachments/assets/d8345f6e-bd17-4c46-83e5-cc0e94db25b7
+https://github.com/user-attachments/assets/ebd4f2b8-fe99-4199-87bd-56b0c1b7f3ea
 
 **Live demo:** `https://class-mind2.streamlit.app/`
 
