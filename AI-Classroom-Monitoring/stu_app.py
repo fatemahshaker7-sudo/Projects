@@ -28,7 +28,7 @@ CHART_GRID = "#E1E8E3"
 
 def style_chart(chart):
     """Apply the shared Class Mind theme to an Altair chart."""
-    return chart.configure( background="#FFFFFF", view=alt.ViewConfig(stroke=None),
+    return chart.configure( background="transparent", view=alt.ViewConfig(stroke=None),
         axis=alt.AxisConfig( labelColor=CHART_TEXT, titleColor=CHART_TEXT, gridColor=CHART_GRID, domainColor=CHART_GRID, tickColor=CHART_GRID, labelFont="Source Sans 3", titleFont="Source Sans 3", labelFontSize=11, titleFontSize=12,),
         legend=alt.LegendConfig(labelColor=CHART_TEXT, titleColor=CHART_TEXT, labelFont="Source Sans 3", titleFont="Source Sans 3", ),
         title=alt.TitleConfig( color=CHART_TEXT, font="Plus Jakarta Sans", fontSize=15, fontWeight="bold", anchor="start", ), )
