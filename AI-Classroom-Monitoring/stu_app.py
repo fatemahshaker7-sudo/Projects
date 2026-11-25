@@ -16,43 +16,6 @@ from face_helper_fun import (S, ATTENDANCE_PATH, LOG_PATH, LOG_COLUMNS, PROCESS_
 
 st.set_page_config(page_title="Class Mind", layout="wide")
 
-def app_header():
-    col1, col2 = st.columns([1, 5], vertical_alignment="center")
-
-    with col1:
-        st.image("assets/class_mind_logo.png", width=95)
-
-    with col2:
-        st.markdown("""
-            <div style="padding-top: 5px;">
-                <h1 style="
-                    color: #10283F;
-                    font-size: 34px;
-                    margin-bottom: 0;
-                    font-weight: 800;">
-                    Class <span style="color: #159B70;">Mind</span>
-                </h1>
-                <p style="
-                    color: #6B9080;
-                    font-size: 13px;
-                    letter-spacing: 2px;
-                    margin-top: 0;">
-                    MONITOR • ANALYZE • SUPPORT
-                </p>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("""
-        <hr style="
-            border: none;
-            height: 2px;
-            background: linear-gradient(
-                to right, #159B70, #D9E9D9, transparent
-            );
-            margin-top: 5px;
-            margin-bottom: 25px;">
-    """, unsafe_allow_html=True)
-
 EMAIL_EVENTS = ["Arrived", "Left class"]
 EMAILS_PER_REFRESH = 3
 SERVERS = {"gmail.com": ("smtp.gmail.com", 465),"outlook.com": ("smtp-mail.outlook.com", 587),"hotmail.com": ("smtp-mail.outlook.com", 587),}
@@ -188,7 +151,6 @@ def live_view():
 _, middle, _ = st.columns([1, 2, 1])
 with middle:
     page = st.segmented_control( "Navigate", ["Enroll", "Class", "Dashboard"], format_func=lambda p: {"Class": "🎓 Class", "Enroll": "👤 Enroll", "Dashboard": "📊 Dashboard"}[p], default="Enroll", label_visibility="collapsed", width="stretch", key="page_nav",) or "Enroll"
-    app_header()
     
 #  ENROLL
 if page == "Enroll":
