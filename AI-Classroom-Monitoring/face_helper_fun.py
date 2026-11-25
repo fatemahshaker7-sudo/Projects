@@ -41,10 +41,6 @@ BAHRAIN = timezone(timedelta(hours=3))   # Bahrain time (UTC+3, no daylight savi
 def bahrain_time(ts=None):
     """The current time (or the given timestamp) as Bahrain time."""
     return datetime.fromtimestamp(time.time() if ts is None else ts, BAHRAIN)
-
-def bahrain_time(ts=None):
-    """The current time (or the given timestamp) as Bahrain time."""
-    return datetime.fromtimestamp(time.time() if ts is None else ts, BAHRAIN)
     
 for path in (DETECTOR_PATH, RECOGNIZER_PATH, EMOTION_PATH):
     if not os.path.exists(path):
