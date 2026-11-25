@@ -1,4 +1,6 @@
 import io
+import base64
+from pathlib import Path
 import smtplib
 import time
 from email.message import EmailMessage
@@ -14,7 +16,7 @@ import streamlit as st
 from streamlit_webrtc import WebRtcMode, webrtc_streamer
 from face_helper_fun import (S, ATTENDANCE_PATH, LOG_PATH, LOG_COLUMNS, PROCESS_SIZE, snapshot, save_pickle, save_students, shrink, detect_faces, get_embedding, check_left, attendance_table, load_log, video_callback, bahrain_time)
 
-st.set_page_config(page_title="Class Mind", layout="wide")
+st.set_page_config(page_title="Class Mind", page_icon="assets/class_mind_logo.png", layout="wide")
 
 EMAIL_EVENTS = ["Arrived", "Left class"]
 EMAILS_PER_REFRESH = 3
@@ -146,6 +148,25 @@ def live_view():
         st.text("\n".join(S["email_log"][-5:]) or "No emails sent yet.")
     else:
         st.caption("Email notifications are off. Enter the sender email and password on the Enroll page.")
+
+# showing the logo and app name on every page 
+
+LOGO_PATH = Path(__file__).parent / "assets" / "class_mind_logo.png"
+def show_header():
+    """Centered logo + app name at the top of every page."""
+    logo_html = ""
+    if LOGO_PATH.exists():
+        encoded = base64.b64encode(LOGO_PATH.read_bytes()).decode()
+        logo_html = f'<img src="data:image/png;base64,{encoded}" style="height:70px; margin-bottom:6px;">'
+    st.markdown(
+        f"""
+        <div style="text-align:center; padding-bottom:10px;">
+            {logo_html}
+            <h1 style="margin:0; padding:0; color:{CHART_TEXT}; letter-spacing:3px;">CLASS MIND</h1>
+        </div>
+        """,
+        unsafe_allow_html=True,)
+show_header()
 
 #  navigation
 _, middle, _ = st.columns([1, 2, 1])
