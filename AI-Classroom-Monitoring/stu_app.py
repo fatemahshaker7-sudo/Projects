@@ -7,6 +7,8 @@ from email.message import EmailMessage
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch, Rectangle
+from matplotlib.lines import Line2D
 from matplotlib.backends.backend_pdf import PdfPages
 import altair as alt
 import cv2
@@ -338,29 +340,56 @@ elif page == "Dashboard":
     card(row3[0], "Hours in class by student", hours_chart)
     card(row3[1], "Daily attendance", daily_chart)
 
-    #  PDF export (built only when asked)
-    def finish(ax, title):
-        ax.set_title(title, loc="left", fontsize=11, fontweight="bold", color=CHART_TEXT)
-        ax.spines[["top", "right"]].set_visible(False)
-        ax.grid(axis="y", alpha=0.2, color=CHART_GRID)
+        #  PDF export (built only when asked)
+    PDF_W, PDF_H = 8.27, 11.69
+    GREEN, SOFT, MUTED = "#6B9080", "#F3F7F4", "#4A6656"
 
+    # per-student summary table (last page of the PDF)
+    _hours = class_secs.groupby("Student").sum().div(3600)
+    _top_emo = seen[seen["Emotion"] != ""].groupby("Student")["Emotion"].agg(lambda v: v.mode().iloc[0])
+    student_summary = pd.DataFrame({"Days": data.groupby("Student")["Date"].nunique(),
+        "Hours": _hours.round(2), "Attention": seen.groupby("Student")["Attention"].apply(lambda v: round(100 * (v == "Attentive").mean(), 1)),
+        "Times left": data.groupby(["Date", "Student"])["Times_left"].max().groupby("Student").sum(),"Top emotion": _top_emo,}).reindex(sorted(data["Student"].unique())).rename_axis("Student").reset_index()
+    student_summary = student_summary.fillna({"Days": 0, "Hours": 0, "Attention": 0, "Times left": 0, "Top emotion": "-"})
+    student_summary["Attention"] = student_summary["Attention"].map(lambda v: f"{v:.1f}%")
+    student_summary["Times left"] = student_summary["Times left"].astype(int)
+
+    def build_insights():
+        notes = []
+        by_student = seen.groupby("Student")["Attention"].apply(lambda v: 100 * (v == "Attentive").mean())
+        if len(by_student) > 0:
+            notes.append(f"Highest attention: {by_student.idxmax()} ({by_student.max():.0f}% attentive).")
+        if len(by_student) > 1:
+            notes.append(f"Lowest attention: {by_student.idxmin()} ({by_student.min():.0f}% attentive).")
+        if not timeline.empty:
+            best = timeline.loc[timeline["Attentive %"].idxmax()]
+            worst = timeline.loc[timeline["Attentive %"].idxmin()]
+            notes.append(f"Most attentive time of day: around {best['Time slot']} ({best['Attentive %']:.0f}%).")
+            notes.append(f"Biggest attention dip: around {worst['Time slot']} ({worst['Attentive %']:.0f}%).")
+        distracted = seen.loc[seen["Attention"] != "Attentive", "Attention"]
+        if not distracted.empty:
+            notes.append(f"Most common distraction: {distracted.mode().iloc[0]}.")
+        if not emo.empty:
+            notes.append(f"Most common emotion: {emo.mode().iloc[0]}.")
+        if not _hours.empty:
+            notes.append(f"Most time in class: {_hours.idxmax()} ({_hours.max():.1f} h).")
+        return notes or ["Not enough data to generate insights."]
+
+    # chart drawing
     def no_data(ax, text):
-        ax.text(0.5, 0.5, text, ha="center", va="center")
+        ax.text(0.5, 0.5, text, ha="center", va="center", color=MUTED)
+        ax.set_xticks([]); ax.set_yticks([])
 
     def donut(ax, values, labels):
-        ax.pie(values, labels=labels, autopct="%1.0f%%", startangle=90,
-               colors=CHART_COLORS[:len(values)], wedgeprops={"width": 0.42, "edgecolor": "white"})
+        ax.pie(values, labels=labels, autopct="%1.0f%%", startangle=90, colors=CHART_COLORS[:len(values)], wedgeprops={"width": 0.42, "edgecolor": "white"}, textprops={"fontsize": 9, "color": CHART_TEXT})
         ax.set_aspect("equal")
 
     def draw_attention(ax):
         counts = seen["Attention"].value_counts()
-        if counts.empty:
-            no_data(ax, "No attention data")
-        else:
-            donut(ax, counts, counts.index)
+        no_data(ax, "No attention data") if counts.empty else donut(ax, counts, counts.index)
 
     def draw_heat(ax):
-        matrix = (data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0))
+        matrix = data.groupby(["Student", "Attention"]).size().unstack(fill_value=0).reindex(columns=STATES, fill_value=0)
         if matrix.empty:
             no_data(ax, "No attention data")
         else:
@@ -372,55 +401,116 @@ elif page == "Dashboard":
     def draw_hours(ax):
         hours = hours_df.sort_values("Hours")
         ax.hlines(hours["Student"], 0, hours["Hours"], color="#C3DCC4", linewidth=3)
-        ax.scatter(hours["Hours"], hours["Student"], color="#6B9080", s=55)
+        ax.scatter(hours["Hours"], hours["Student"], color=GREEN, s=55, zorder=3)
         ax.set_xlabel("Hours in class")
 
     def draw_emotions(ax):
-        if emotion_df.empty:
-            no_data(ax, "No emotion data")
-        else:
-            donut(ax, emotion_df["Records"], emotion_df["Emotion"])
+        no_data(ax, "No emotion data") if emotion_df.empty else donut(ax, emotion_df["Records"], emotion_df["Emotion"])
 
     def draw_timeline(ax):
         if timeline.empty:
             no_data(ax, "No camera-visible data")
         else:
-            ax.plot(timeline["Time slot"], timeline["Attentive %"], marker="o", color="#6B9080")
+            ax.fill_between(range(len(timeline)), timeline["Attentive %"], alpha=0.25, color="#A8C9AD")
+            ax.plot(range(len(timeline)), timeline["Attentive %"], marker="o", color=GREEN, linewidth=2)
+            ax.set_xticks(range(len(timeline)), timeline["Time slot"], rotation=35)
             ax.set_ylim(0, 100)
             ax.set_ylabel("Attentive (%)")
-            ax.tick_params(axis="x", rotation=35)
 
     def draw_daily(ax):
-        ax.fill_between(range(len(daily)), daily["Students"], alpha=0.25, color="#A8C9AD")
-        ax.plot(range(len(daily)), daily["Students"], marker="o", color="#6B9080")
-        ax.set_xticks(range(len(daily)), daily["Date"], rotation=35)
+        ax.bar(daily["Date"], daily["Students"], color="#8FB5A0", width=0.6)
+        ax.tick_params(axis="x", rotation=35)
         ax.set_ylabel("Students recorded")
 
-    pdf_charts = [("Attention distribution", draw_attention),
-        ("Attention states by student", draw_heat), ("Hours in class by student", draw_hours),
-        ("Recorded emotion distribution", draw_emotions),("Attention throughout the day", draw_timeline),
-        ("Daily attendance trend", draw_daily)]
+    # (title, draw function, description, show grid)
+    pdf_charts = [ ("Attention throughout the day", draw_timeline, "Share of visible students who were attentive, in 5-minute slots.", True),
+        ("Attention distribution", draw_attention, "How all visible records split across attention states.", False),
+        ("Attention states by student", draw_heat, "Number of records per student in each attention state.", False),
+        ("Recorded emotions", draw_emotions, "Emotions detected on students' faces while in class.", False),
+        ("Hours in class by student", draw_hours, "Total time each student spent in class.", True),
+        ("Daily attendance", draw_daily, "Number of students recorded on each day.", True) ]
+
+    def finish(ax, title, desc, grid):
+        ax.set_title(title, loc="left", fontsize=12, fontweight="bold", color=CHART_TEXT, pad=26)
+        ax.text(0, 1.03, desc, transform=ax.transAxes, fontsize=8, color=MUTED, va="bottom")
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.tick_params(colors=CHART_TEXT, labelsize=8)
+        ax.grid(axis="y", alpha=0.25, color=CHART_GRID) if grid else ax.grid(False)
+
+    # page layout
+    def page_frame(fig, page_no, total, heading=None):
+        if heading:
+            fig.add_artist(Rectangle((0, 0.955), 1, 0.045, transform=fig.transFigure, color=GREEN))
+            fig.text(0.08, 0.977, "CLASS MIND", color="white", fontsize=11, fontweight="bold", va="center")
+            fig.text(0.92, 0.977, heading, color="white", fontsize=9, ha="right", va="center")
+        fig.add_artist(Line2D([0.08, 0.92], [0.05, 0.05], transform=fig.transFigure, color=CHART_GRID, linewidth=1))
+        fig.text(0.08, 0.03, f"{start} to {end}  |  Generated {bahrain_time():%Y-%m-%d %H:%M} (Bahrain time)", fontsize=7.5, color=MUTED)
+        fig.text(0.92, 0.03, f"Page {page_no} of {total}", fontsize=7.5, color=MUTED, ha="right")
+
+    def cover_page(total):
+        fig = plt.figure(figsize=(PDF_W, PDF_H))
+        fig.add_artist(Rectangle((0, 0.975), 1, 0.025, transform=fig.transFigure, color=GREEN))
+        if LOGO_PATH.exists():
+            logo_ax = fig.add_axes([0.35, 0.86, 0.30, 0.10])
+            logo_ax.imshow(plt.imread(LOGO_PATH))
+            logo_ax.axis("off")
+        fig.text(0.5, 0.825, "CLASS MIND", ha="center", fontsize=30, fontweight="bold", color=CHART_TEXT)
+        fig.text(0.5, 0.795, "Class Dashboard Report", ha="center", fontsize=14, color=GREEN)
+        fig.text(0.5, 0.768, f"{start} to {end}  |  {len(students)} student(s)", ha="center", fontsize=10, color=MUTED)
+        fig.add_artist(Line2D([0.08, 0.92], [0.745, 0.745], transform=fig.transFigure, color=CHART_GRID, linewidth=1))
+
+        fig.text(0.08, 0.705, "Summary", fontsize=14, fontweight="bold", color=CHART_TEXT)
+        for j, (label, value) in enumerate(kpis.items()):
+            x, y = 0.08 + 0.295 * (j % 3), 0.60 - 0.105 * (j // 3)
+            fig.add_artist(FancyBboxPatch((x, y), 0.25, 0.085, boxstyle="round,pad=0,rounding_size=0.008", transform=fig.transFigure, facecolor=SOFT, edgecolor=CHART_GRID))
+            fig.text(x + 0.125, y + 0.047, str(value), ha="center", fontsize=19, fontweight="bold", color=GREEN)
+            fig.text(x + 0.125, y + 0.015, label, ha="center", fontsize=9, color=CHART_TEXT)
+
+        fig.text(0.08, 0.45, "Key insights", fontsize=14, fontweight="bold", color=CHART_TEXT)
+        for i, note in enumerate(build_insights()):
+            fig.text(0.09, 0.412 - i * 0.034, f"•  {note}", fontsize=10, color=CHART_TEXT)
+        page_frame(fig, 1, total)
+        return fig
+
+    def chart_page(index, page_no, total):
+        fig = plt.figure(figsize=(PDF_W, PDF_H))
+        for slot, (title, draw_function, desc, grid) in zip([0.58, 0.14], pdf_charts[index:index + 2]):
+            ax = fig.add_axes([0.18, slot, 0.74, 0.27])
+            draw_function(ax)
+            finish(ax, title, desc, grid)
+        page_frame(fig, page_no, total, "Class Dashboard")
+        return fig
+
+    def table_page(chunk, page_no, total):
+        fig = plt.figure(figsize=(PDF_W, PDF_H))
+        fig.text(0.08, 0.91, "Student summary", fontsize=14, fontweight="bold", color=CHART_TEXT)
+        ax = fig.add_axes([0.08, 0.10, 0.84, 0.78])
+        ax.axis("off")
+        table = ax.table(cellText=chunk.values.tolist(), colLabels=list(chunk.columns), loc="upper center", cellLoc="center")
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1, 1.8)
+        for (row, col), cell in table.get_celld().items():
+            cell.set_edgecolor(CHART_GRID)
+            if row == 0:
+                cell.set_facecolor(GREEN)
+                cell.set_text_props(color="white", fontweight="bold")
+            else:
+                cell.set_facecolor(SOFT if row % 2 == 0 else "white")
+                cell.set_text_props(color=CHART_TEXT)
+        page_frame(fig, page_no, total, "Class Dashboard")
+        return fig
 
     def build_pdf():
+        chunks = [student_summary.iloc[i:i + 22] for i in range(0, len(student_summary), 22)]
+        chart_starts = list(range(0, len(pdf_charts), 2))
+        total = 1 + len(chart_starts) + len(chunks)
         buffer = io.BytesIO()
-        with PdfPages(buffer) as document:
-            for index in range(0, len(pdf_charts), 2):
-                fig, axes = plt.subplots(2, 1, figsize=(8.27, 11.69))
-                for ax, (chart_title, draw_function) in zip(axes, pdf_charts[index:index + 2]):
-                    draw_function(ax)
-                    finish(ax, chart_title)
-
-                fig.subplots_adjust(top=0.60 if index == 0 else 0.94, bottom=0.08, hspace=0.65, left=0.16, right=0.95)
-
-                if index == 0:
-                    fig.text(0.08, 0.95, "Class Mind: Class Dashboard", fontsize=22, fontweight="bold", color=CHART_TEXT)
-                    fig.text(0.08, 0.925, f"{start} to {end} | {len(students)} student(s) | " f"{bahrain_time():%Y-%m-%d %H:%M} Bahrain time", fontsize=9, color="#4A6656")
-                    for j, (label, value) in enumerate(kpis.items()):
-                        x = 0.08 + 0.45 * (j % 2)
-                        y = 0.86 - (j // 2) * 0.075
-                        fig.text(x, y, str(value), fontsize=22, fontweight="bold", color="#6B9080")
-                        fig.text(x, y - 0.022, label, fontsize=10, color=CHART_TEXT)
-
+        with PdfPages(buffer, metadata={"Title": "Class Mind - Class Dashboard", "Author": "Class Mind"}) as document:
+            pages = [cover_page(total)]
+            pages += [chart_page(i, n + 2, total) for n, i in enumerate(chart_starts)]
+            pages += [table_page(c, len(chart_starts) + 2 + n, total) for n, c in enumerate(chunks)]
+            for fig in pages:
                 document.savefig(fig)
                 plt.close(fig)
         return buffer.getvalue()
@@ -443,7 +533,6 @@ else:
     st.number_input( "Mark as 'left class' after (seconds not seen)", 10, 1800, value=int(cfg["gone_secs"]), key="w_gone_secs", on_change=update_cfg, args=("gone_secs", "w_gone_secs"))
     sync_settings()
     gone_secs = int(cfg["gone_secs"])
-
     tab_live, tab_report = st.tabs(["Live monitoring", "Report"])
 
     with tab_live:
@@ -452,11 +541,8 @@ else:
         else:
             st.write("Press START, allow camera access, and keep this page open while " "class is in session. Use one browser tab with one camera at a time.")
 
-            webrtc_streamer(
-                key="classroom", mode=WebRtcMode.SENDRECV,
-                rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-                media_stream_constraints={ "video": {"width": {"ideal": PROCESS_SIZE}, "height": {"ideal": int(PROCESS_SIZE * 0.75)}, "frameRate": {"ideal": 15}}, "audio": False},
-                video_frame_callback=video_callback, async_processing=True)
+            webrtc_streamer( key="classroom", mode=WebRtcMode.SENDRECV, rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+                media_stream_constraints={ "video": {"width": {"ideal": PROCESS_SIZE}, "height": {"ideal": int(PROCESS_SIZE * 0.75)}, "frameRate": {"ideal": 15}}, "audio": False}, video_frame_callback=video_callback, async_processing=True)
             live_view()
 
     with tab_report:
@@ -464,7 +550,6 @@ else:
         names = list(S["db"])
         log = load_log()
         check_left(att, time.time(), gone_secs)
-
         day = st.date_input("Date", value=bahrain_time().date()).strftime("%Y-%m-%d")
         day_log = log[log["Date"] == day]
         tab_attendance, tab_attention, tab_log = st.tabs(["Attendance", "Attention", "Log file"])
